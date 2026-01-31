@@ -8,6 +8,7 @@ type Resultado = {
   telefone: string | null
   nota: number | null
   mapsUrl: string
+  fotoUrl: string | null
 }
 
 type ApiResponse = {
@@ -160,6 +161,33 @@ export default function HomePage() {
         <section className="mt-10 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-slate-100">Resultados</h2>
+            {resultados.length > 0 && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm text-slate-100 transition hover:bg-white/20"
+                onClick={() => {
+                  const header = ['nome', 'endereco', 'telefone']
+                  const rows = resultados.map((r) => [
+                    r.nome.replace(/"/g, '""'),
+                    r.endereco.replace(/"/g, '""'),
+                    (r.telefone ?? '').replace(/"/g, '""'),
+                  ])
+                  const csv =
+                    [header, ...rows]
+                      .map((cols) => cols.map((c) => `"${c}"`).join(','))
+                      .join('\n') + '\n'
+                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'super-cotacao.csv'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+              >
+                📤 Exportar CSV (nome, endereço, telefone)
+              </button>
+            )}
             {loading && (
               <div className="flex items-center gap-2 text-sm text-slate-300">
                 <span className="h-2 w-2 animate-ping rounded-full bg-brand" />
@@ -175,40 +203,54 @@ export default function HomePage() {
               {resultados.map((item) => (
                 <article
                   key={item.id}
-                  className="glass-panel group flex flex-col justify-between rounded-2xl border border-white/5 p-5 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
+                  className="glass-panel group grid grid-cols-[110px_1fr] gap-4 rounded-2xl border border-white/5 p-4 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[140px_1fr]"
                 >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{item.nome}</h3>
-                        <p className="text-sm text-slate-300">{item.endereco}</p>
+                  <div className="overflow-hidden rounded-xl bg-white/5">
+                    {item.fotoUrl ? (
+                      <img
+                        src={item.fotoUrl}
+                        alt={item.nome}
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full min-h-[110px] items-center justify-center text-xs text-slate-400">
+                        Sem foto
                       </div>
-                      {item.nota && (
-                        <span className="flex items-center gap-1 rounded-full bg-brand/15 px-3 py-1 text-sm font-semibold text-brand">
-                          <span aria-hidden>★</span>
-                          <span>{item.nota.toFixed(1)}</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-3 text-sm text-slate-200">
-                      <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1">
-                        <span className="text-brand">☎</span>
-                        <span>{item.telefone ?? 'Telefone não informado'}</span>
-                      </span>
-                    </div>
+                    )}
                   </div>
-
-                  <div className="mt-4 flex items-center justify-between text-sm text-slate-300">
-                    <span>Abra no Google Maps para rotas e avaliações</span>
-                    <a
-                      className="rounded-full bg-white/10 px-3 py-2 text-brand transition hover:bg-white/20"
-                      href={item.mapsUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Ver no Maps →
-                    </a>
+                  <div className="flex flex-col justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">{item.nome}</h3>
+                          <p className="text-sm text-slate-300">{item.endereco}</p>
+                        </div>
+                        {item.nota && (
+                          <span className="flex items-center gap-1 rounded-full bg-brand/15 px-3 py-1 text-sm font-semibold text-brand">
+                            <span aria-hidden>★</span>
+                            <span>{item.nota.toFixed(1)}</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-sm text-slate-200">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1">
+                          <span className="text-brand">☎</span>
+                          <span>{item.telefone ?? 'Telefone não informado'}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-slate-300">
+                      <span>Abra no Google Maps para rotas e avaliações</span>
+                      <a
+                        className="rounded-full bg-white/10 px-3 py-2 text-brand transition hover:bg-white/20"
+                        href={item.mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Ver no Maps →
+                      </a>
+                    </div>
                   </div>
                 </article>
               ))}

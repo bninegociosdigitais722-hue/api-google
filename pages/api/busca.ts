@@ -7,6 +7,7 @@ type PlaceSummary = {
   telefone: string | null
   nota: number | null
   mapsUrl: string
+  fotoUrl: string | null
 }
 
 type ErrorResponse = { message: string }
@@ -155,30 +156,61 @@ export default async function handler(
     nearbyUrl.searchParams.set('language', 'pt-BR')
     nearbyUrl.searchParams.set('key', apiKey)
 
-    const nearbyResponse = await fetch(nearbyUrl.toString())
-    const nearbyJson = await nearbyResponse.json()
+    // Função para coletar múltiplas páginas (até ~60 resultados) usando next_page_token
+    const fetchNearbyPages = async (url: URL, maxResults = 30) => {
+      const collected: any[] = []
+      let pageUrl: URL | null = new URL(url.toString())
 
-    log('nearby_response', {
-      status: nearbyJson.status,
-      results: nearbyJson.results?.length ?? 0,
-      firstResult: nearbyJson.results?.[0]?.name,
-      errorMessage: nearbyJson.error_message,
-    })
+      while (pageUrl && collected.length < maxResults) {
+        const resp = await fetch(pageUrl.toString())
+        const json = await resp.json()
 
-    if (nearbyJson.status === 'REQUEST_DENIED') {
+        log('nearby_response', {
+          status: json.status,
+          results: json.results?.length ?? 0,
+          firstResult: json.results?.[0]?.name,
+          errorMessage: json.error_message,
+          pageTokenPresent: Boolean(json.next_page_token),
+        })
+
+        if (json.status === 'REQUEST_DENIED') {
+          return { error: json.error_message }
+        }
+
+        if (Array.isArray(json.results)) {
+          collected.push(...json.results)
+        }
+
+        if (json.next_page_token && collected.length < maxResults) {
+          // A Google exige um pequeno atraso antes de usar o next_page_token
+          await new Promise((r) => setTimeout(r, 1500))
+          pageUrl = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json')
+          pageUrl.searchParams.set('pagetoken', json.next_page_token)
+          pageUrl.searchParams.set('key', apiKey)
+        } else {
+          pageUrl = null
+        }
+      }
+
+      return { results: collected.slice(0, maxResults) }
+    }
+
+    const nearbyData = await fetchNearbyPages(nearbyUrl, 30)
+
+    if ('error' in nearbyData) {
       return res.status(502).json({
         message:
-          nearbyJson.error_message ||
+          nearbyData.error ||
           'Google retornou REQUEST_DENIED na Places Nearby. Verifique as restrições da chave (IP/domínio) e se as APIs estão liberadas.',
       })
     }
 
-    if (!Array.isArray(nearbyJson.results) || nearbyJson.results.length === 0) {
+    if (!nearbyData.results || nearbyData.results.length === 0) {
       res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=120')
       return res.status(200).json({ resultados: [] })
     }
 
-    const limitedResults = nearbyJson.results.slice(0, 10)
+    const limitedResults = nearbyData.results.slice(0, 30)
 
     const detailed = await Promise.all(
       limitedResults.map(async (place: any) => {
@@ -201,6 +233,11 @@ export default async function handler(
 
         const endereco = details.formatted_address ?? place.vicinity ?? 'Endereço não informado'
 
+        const photoRef =
+          details.photos?.[0]?.photo_reference ??
+          place.photos?.[0]?.photo_reference ??
+          null
+
         return {
           id: place.place_id,
           nome: details.name ?? place.name ?? 'Estabelecimento sem nome',
@@ -208,6 +245,7 @@ export default async function handler(
           telefone: details.formatted_phone_number ?? null,
           nota: rating,
           mapsUrl: details.url ?? `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+          fotoUrl: photoRef ? `/api/foto?ref=${encodeURIComponent(photoRef)}&maxwidth=600` : null,
         } as PlaceSummary
       })
     )
