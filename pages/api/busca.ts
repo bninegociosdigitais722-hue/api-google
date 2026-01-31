@@ -79,7 +79,14 @@ export default async function handler(
         status: geocodeJson.status,
         results: geocodeJson.results?.length ?? 0,
         firstResult: geocodeJson.results?.[0]?.formatted_address,
+        errorMessage: geocodeJson.error_message,
       })
+
+      if (geocodeJson.status === 'REQUEST_DENIED') {
+        throw new Error(
+          geocodeJson.error_message || 'REQUEST_DENIED na Geocoding API (ver restrições da chave).'
+        )
+      }
 
       if (geocodeJson.status === 'OK' && geocodeJson.results?.length) {
         return geocodeJson.results[0].geometry.location
@@ -103,7 +110,14 @@ export default async function handler(
         status: textJson.status,
         results: textJson.results?.length ?? 0,
         firstResult: textJson.results?.[0]?.formatted_address,
+        errorMessage: textJson.error_message,
       })
+
+      if (textJson.status === 'REQUEST_DENIED') {
+        throw new Error(
+          textJson.error_message || 'REQUEST_DENIED na Places Text Search (ver restrições da chave).'
+        )
+      }
 
       if (textJson.status === 'OK' && Array.isArray(textJson.results) && textJson.results.length) {
         const loc = textJson.results[0].geometry?.location
@@ -148,7 +162,16 @@ export default async function handler(
       status: nearbyJson.status,
       results: nearbyJson.results?.length ?? 0,
       firstResult: nearbyJson.results?.[0]?.name,
+      errorMessage: nearbyJson.error_message,
     })
+
+    if (nearbyJson.status === 'REQUEST_DENIED') {
+      return res.status(502).json({
+        message:
+          nearbyJson.error_message ||
+          'Google retornou REQUEST_DENIED na Places Nearby. Verifique as restrições da chave (IP/domínio) e se as APIs estão liberadas.',
+      })
+    }
 
     if (!Array.isArray(nearbyJson.results) || nearbyJson.results.length === 0) {
       res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=120')
