@@ -29,6 +29,18 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<SuccessResponse | ErrorResponse>
 ) {
+  const requestId = Math.random().toString(16).slice(2, 10)
+  const log = (message: string, extra?: Record<string, any>) => {
+    console.log(
+      JSON.stringify({
+        tag: 'api/busca',
+        requestId,
+        message,
+        ...extra,
+      })
+    )
+  }
+
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
     return res.status(405).json({ message: 'Método não permitido.' })
@@ -63,11 +75,17 @@ export default async function handler(
       const geocodeResponse = await fetch(geocodeUrl)
       const geocodeJson = await geocodeResponse.json()
 
+      log('geocode_response', {
+        status: geocodeJson.status,
+        results: geocodeJson.results?.length ?? 0,
+        firstResult: geocodeJson.results?.[0]?.formatted_address,
+      })
+
       if (geocodeJson.status === 'OK' && geocodeJson.results?.length) {
         return geocodeJson.results[0].geometry.location
       }
     } catch (err) {
-      console.error('[api/busca] Erro no geocoding primário:', err)
+      log('geocode_error', { error: (err as Error)?.message })
     }
 
     // 2) Fallback: Places Text Search para obter um ponto central
@@ -81,6 +99,12 @@ export default async function handler(
       const textResponse = await fetch(textUrl.toString())
       const textJson = await textResponse.json()
 
+      log('textsearch_response', {
+        status: textJson.status,
+        results: textJson.results?.length ?? 0,
+        firstResult: textJson.results?.[0]?.formatted_address,
+      })
+
       if (textJson.status === 'OK' && Array.isArray(textJson.results) && textJson.results.length) {
         const loc = textJson.results[0].geometry?.location
         if (loc?.lat && loc?.lng) {
@@ -88,7 +112,7 @@ export default async function handler(
         }
       }
     } catch (err) {
-      console.error('[api/busca] Erro no fallback de text search:', err)
+      log('textsearch_error', { error: (err as Error)?.message })
     }
 
     return null
@@ -96,6 +120,7 @@ export default async function handler(
 
   const coords = await fetchCoords()
   if (!coords) {
+    log('coords_not_found', { localizacao: localizacaoText })
     return res.status(404).json({
       message:
         'Localização não encontrada. Tente incluir bairro + cidade/UF (ex.: "Recreio dos Bandeirantes, Rio de Janeiro").',
@@ -103,6 +128,8 @@ export default async function handler(
   }
 
   try {
+    log('coords_found', { lat: coords.lat, lng: coords.lng })
+
     const nearbyUrl = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json')
     nearbyUrl.searchParams.set('location', `${coords.lat},${coords.lng}`)
     nearbyUrl.searchParams.set('radius', '3000')
@@ -116,6 +143,12 @@ export default async function handler(
 
     const nearbyResponse = await fetch(nearbyUrl.toString())
     const nearbyJson = await nearbyResponse.json()
+
+    log('nearby_response', {
+      status: nearbyJson.status,
+      results: nearbyJson.results?.length ?? 0,
+      firstResult: nearbyJson.results?.[0]?.name,
+    })
 
     if (!Array.isArray(nearbyJson.results) || nearbyJson.results.length === 0) {
       res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=120')
@@ -159,7 +192,7 @@ export default async function handler(
     res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=120')
     return res.status(200).json({ resultados: detailed })
   } catch (error) {
-    console.error('[api/busca] Erro inesperado:', error)
+    log('unexpected_error', { error: (error as Error)?.message })
     return res
       .status(500)
       .json({ message: 'Erro ao consultar a Google Maps API. Tente novamente em instantes.' })
