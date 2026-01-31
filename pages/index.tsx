@@ -205,11 +205,11 @@ export default function HomePage() {
 
           {visiveis.length > 0 && (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
                 {visiveis.map((item) => (
                   <article
                     key={item.id}
-                    className="glass-panel group relative grid h-full grid-cols-[120px_1fr] gap-3 rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[130px_1fr]"
+                    className="glass-panel group relative flex h-full flex-col rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
                   >
                     <button
                       type="button"
@@ -232,24 +232,25 @@ export default function HomePage() {
                         <img
                           src={item.fotoUrl}
                           alt={item.nome}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          style={{ height: 150 }}
+                          className="h-[180px] w-full object-cover transition duration-300 group-hover:scale-105"
                           loading="lazy"
                         />
                       ) : (
-                      <div className="flex h-[150px] items-center justify-center text-xs text-slate-400">
+                      <div className="flex h-[180px] items-center justify-center text-xs text-slate-400">
                         Sem foto
                       </div>
                       )}
                     </div>
-                    <div className="flex h-full flex-col justify-between gap-2">
+                    <div className="mt-3 flex h-full flex-col justify-between gap-2">
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="text-sm font-semibold text-white leading-tight line-clamp-2">
+                          <div className="space-y-1">
+                            <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">
                               {item.nome}
                             </h3>
-                            <p className="text-xs text-slate-300 line-clamp-2">{item.endereco}</p>
+                            <p className="text-xs text-slate-300 leading-snug line-clamp-2">
+                              {item.endereco}
+                            </p>
                           </div>
                           {item.nota && (
                             <span className="flex items-center gap-1 rounded-full bg-brand/15 px-2 py-1 text-xs font-semibold text-brand">
@@ -258,15 +259,13 @@ export default function HomePage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-2 text-[11px] text-slate-200">
-                          <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-2.5 py-1">
-                            <span className="text-brand">☎</span>
-                            <span>{item.telefone ?? 'Telefone não informado'}</span>
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-slate-200">
+                          <span className="text-brand">☎</span>
+                          <span className="line-clamp-1">{item.telefone ?? 'Telefone não informado'}</span>
+                        </span>
                       </div>
-                      <div className="flex items-center justify-between text-[13px] text-slate-300">
-                        <span className="line-clamp-2">Abra no Google Maps para rotas e avaliações</span>
+                      <div className="flex items-center justify-between text-[12px] text-slate-300">
+                        <span className="line-clamp-1">Abra no Google Maps para rotas e avaliações</span>
                         <a
                           className="rounded-full bg-white/10 px-3 py-1.5 text-brand transition hover:bg-white/20 whitespace-nowrap"
                           href={item.mapsUrl}
