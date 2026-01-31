@@ -71,7 +71,7 @@ export default function HomePage() {
   )
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-surface text-slate-50">
+    <div className="relative min-h-screen overflow-x-hidden bg-surface text-slate-50">
       <Head>
         <title>Super Cotação | Busque mercados perto de você</title>
         <meta
@@ -86,26 +86,26 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-radial-dots" />
       </div>
 
-      <main className="relative mx-auto max-w-6xl px-4 pb-16 pt-14">
-        <header className="space-y-5 text-center">
-          <p className="text-xs uppercase tracking-[0.4em] text-slate-300">Super Cotação</p>
-          <h1 className="text-4xl font-bold leading-tight sm:text-5xl">
+      <main className="relative mx-auto max-w-7xl px-3 pb-16 pt-10 sm:px-6">
+        <header className="space-y-4 text-center">
+          <p className="text-[11px] uppercase tracking-[0.5em] text-slate-300">Super Cotação</p>
+          <h1 className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl">
             Compare mercados e estabelecimentos próximos com rapidez
           </h1>
-          <p className="text-lg text-slate-300 sm:text-xl">
+          <p className="text-base text-slate-300 sm:text-lg">
             Busque por tipo de comércio, veja endereço, telefone, nota e já abra a rota no Google Maps.
           </p>
         </header>
 
-        <section className="mt-10 space-y-4">
+        <section className="mt-8 space-y-4">
           <form
             onSubmit={handleSubmit}
-            className="glass-panel grid gap-4 rounded-2xl border border-white/5 p-6 shadow-xl sm:p-8 lg:grid-cols-[1.2fr_1.2fr_auto]"
+            className="glass-panel grid gap-4 rounded-2xl border border-white/5 p-4 shadow-xl sm:p-6 lg:grid-cols-[1.2fr_1.2fr_auto]"
           >
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-slate-300">
                 <span>Tipo de estabelecimento</span>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {sugestoes.map((item) => (
                     <button
                       key={item}
@@ -161,13 +161,13 @@ export default function HomePage() {
           )}
         </section>
 
-        <section className="mt-10 space-y-4">
-          <div className="flex items-center justify-between">
+        <section className="mt-8 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-slate-100">Resultados</h2>
             {resultados.length > 0 && (
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm text-slate-100 transition hover:bg-white/20"
+                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm text-slate-100 transition hover:bg-white/20"
                 onClick={() => {
                   const header = ['nome', 'endereco', 'telefone']
                   const rows = resultados.map((r) => [
@@ -203,18 +203,18 @@ export default function HomePage() {
 
           {visiveis.length > 0 && (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {visiveis.map((item) => (
                   <article
                     key={item.id}
-                    className="glass-panel group grid grid-cols-[120px_1fr] gap-3 rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[140px_1fr]"
+                    className="glass-panel group grid grid-cols-[110px_1fr] gap-3 rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[130px_1fr]"
                   >
                     <div className="overflow-hidden rounded-xl bg-white/5">
                       {item.fotoUrl ? (
                         <img
                           src={item.fotoUrl}
                           alt={item.nome}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105 aspect-[4/3]"
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105 aspect-[1/1]"
                           loading="lazy"
                         />
                       ) : (
