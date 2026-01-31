@@ -56,13 +56,16 @@ export default async function handler(
   try {
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
       localizacaoText
-    )}&language=pt-BR&key=${apiKey}`
+    )}&language=pt-BR&region=br&components=country:BR&key=${apiKey}`
 
     const geocodeResponse = await fetch(geocodeUrl)
     const geocodeJson = await geocodeResponse.json()
 
     if (geocodeJson.status !== 'OK' || !geocodeJson.results?.length) {
-      return res.status(404).json({ message: 'Localização não encontrada.' })
+      return res.status(404).json({
+        message:
+          'Localização não encontrada. Tente adicionar a cidade/UF (ex.: "Recreio dos Bandeirantes, Rio de Janeiro").',
+      })
     }
 
     const { lat, lng } = geocodeJson.results[0].geometry.location
