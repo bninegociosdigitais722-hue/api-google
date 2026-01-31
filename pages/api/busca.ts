@@ -157,7 +157,7 @@ export default async function handler(
     nearbyUrl.searchParams.set('key', apiKey)
 
     // Função para coletar múltiplas páginas (até ~60 resultados) usando next_page_token
-    const fetchNearbyPages = async (url: URL, maxResults = 30) => {
+    const fetchNearbyPages = async (url: URL, maxResults = 60) => {
       const collected: any[] = []
       let pageUrl: URL | null = new URL(url.toString())
 

@@ -22,6 +22,7 @@ export default function HomePage() {
   const [tipo, setTipo] = useState('supermercado')
   const [localizacao, setLocalizacao] = useState('')
   const [resultados, setResultados] = useState<Resultado[]>([])
+  const [visiveis, setVisiveis] = useState<Resultado[]>([])
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -36,6 +37,7 @@ export default function HomePage() {
     setErro(null)
     setLoading(true)
     setResultados([])
+    setVisiveis([])
 
     try {
       const query = new URLSearchParams({ tipo, localizacao })
@@ -47,6 +49,7 @@ export default function HomePage() {
       }
 
       setResultados(data.resultados)
+      setVisiveis(data.resultados.slice(0, 18))
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro inesperado ao buscar.'
       setErro(message)
@@ -198,28 +201,29 @@ export default function HomePage() {
 
           {!loading && resultados.length === 0 && renderEstadoVazio()}
 
-          {resultados.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2">
-              {resultados.map((item) => (
-                <article
-                  key={item.id}
-                  className="glass-panel group grid grid-cols-[110px_1fr] gap-4 rounded-2xl border border-white/5 p-4 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[140px_1fr]"
-                >
-                  <div className="overflow-hidden rounded-xl bg-white/5">
-                    {item.fotoUrl ? (
-                      <img
-                        src={item.fotoUrl}
-                        alt={item.nome}
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                    ) : (
+          {visiveis.length > 0 && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {visiveis.map((item) => (
+                  <article
+                    key={item.id}
+                    className="glass-panel group grid grid-cols-[120px_1fr] gap-3 rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[140px_1fr]"
+                  >
+                    <div className="overflow-hidden rounded-xl bg-white/5">
+                      {item.fotoUrl ? (
+                        <img
+                          src={item.fotoUrl}
+                          alt={item.nome}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105 aspect-[4/3]"
+                          loading="lazy"
+                        />
+                      ) : (
                       <div className="flex h-full min-h-[110px] items-center justify-center text-xs text-slate-400">
                         Sem foto
                       </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col justify-between gap-3">
+                      )}
+                    </div>
+                    <div className="flex flex-col justify-between gap-3">
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -254,7 +258,22 @@ export default function HomePage() {
                   </div>
                 </article>
               ))}
-            </div>
+              </div>
+              {visiveis.length < resultados.length && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    className="btn-primary px-5 py-3 text-sm"
+                    onClick={() => {
+                      const proximo = Math.min(visiveis.length + 12, resultados.length)
+                      setVisiveis(resultados.slice(0, proximo))
+                    }}
+                  >
+                    Mostrar mais ({resultados.length - visiveis.length} restantes)
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
       </main>
