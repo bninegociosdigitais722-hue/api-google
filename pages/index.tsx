@@ -222,7 +222,7 @@ export default function HomePage() {
                         setResultados(novosResultados)
                         setVisiveis(novosVisiveis)
                       }}
-                      className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-600/80 text-sm font-bold text-white shadow-lg shadow-red-900/40 transition hover:scale-105"
+                      className="absolute right-2 top-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-600/90 text-sm font-bold text-white shadow-lg shadow-red-900/50 transition hover:scale-105"
                       title="Remover este estabelecimento (não entra no CSV)"
                     >
                       ✕
