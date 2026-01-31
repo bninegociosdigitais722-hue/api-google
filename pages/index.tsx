@@ -23,6 +23,7 @@ export default function HomePage() {
   const [localizacao, setLocalizacao] = useState('')
   const [resultados, setResultados] = useState<Resultado[]>([])
   const [visiveis, setVisiveis] = useState<Resultado[]>([])
+  const [removidos, setRemovidos] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -38,6 +39,7 @@ export default function HomePage() {
     setLoading(true)
     setResultados([])
     setVisiveis([])
+    setRemovidos(new Set())
 
     try {
       const query = new URLSearchParams({ tipo, localizacao })
@@ -207,18 +209,35 @@ export default function HomePage() {
                 {visiveis.map((item) => (
                   <article
                     key={item.id}
-                    className="glass-panel group grid h-full grid-cols-[110px_1fr] gap-3 rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[130px_1fr]"
+                    className="glass-panel group relative grid h-full grid-cols-[120px_1fr] gap-3 rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[130px_1fr]"
                   >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newSet = new Set(removidos)
+                        newSet.add(item.id)
+                        setRemovidos(newSet)
+                        const novosVisiveis = visiveis.filter((v) => v.id !== item.id)
+                        const novosResultados = resultados.filter((v) => v.id !== item.id)
+                        setResultados(novosResultados)
+                        setVisiveis(novosVisiveis)
+                      }}
+                      className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-slate-200 hover:bg-red-500/70 hover:text-white"
+                      title="Remover este estabelecimento (não entra no CSV)"
+                    >
+                      ✕
+                    </button>
                     <div className="overflow-hidden rounded-xl bg-white/5">
                       {item.fotoUrl ? (
                         <img
                           src={item.fotoUrl}
                           alt={item.nome}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105 aspect-[4/5]"
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          style={{ height: 150 }}
                           loading="lazy"
                         />
                       ) : (
-                      <div className="flex h-full min-h-[110px] items-center justify-center text-xs text-slate-400">
+                      <div className="flex h-[150px] items-center justify-center text-xs text-slate-400">
                         Sem foto
                       </div>
                       )}
@@ -227,10 +246,10 @@ export default function HomePage() {
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <h3 className="text-sm font-semibold text-white leading-tight line-clamp-3">
+                            <h3 className="text-sm font-semibold text-white leading-tight line-clamp-2">
                               {item.nome}
                             </h3>
-                            <p className="text-xs text-slate-300 line-clamp-3">{item.endereco}</p>
+                            <p className="text-xs text-slate-300 line-clamp-2">{item.endereco}</p>
                           </div>
                           {item.nota && (
                             <span className="flex items-center gap-1 rounded-full bg-brand/15 px-2 py-1 text-xs font-semibold text-brand">
@@ -239,7 +258,7 @@ export default function HomePage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-2 text-xs text-slate-200">
+                        <div className="flex flex-wrap gap-2 text-[11px] text-slate-200">
                           <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-2.5 py-1">
                             <span className="text-brand">☎</span>
                             <span>{item.telefone ?? 'Telefone não informado'}</span>
