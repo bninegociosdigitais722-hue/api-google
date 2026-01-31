@@ -86,21 +86,21 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-radial-dots" />
       </div>
 
-      <main className="relative mx-auto max-w-7xl px-3 pb-16 pt-10 sm:px-6">
-        <header className="space-y-4 text-center">
+      <main className="relative mx-auto w-[96vw] max-w-screen-2xl px-2 pb-12 pt-6 sm:px-4">
+        <header className="space-y-3 text-center">
           <p className="text-[11px] uppercase tracking-[0.5em] text-slate-300">Super Cotação</p>
           <h1 className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl">
             Compare mercados e estabelecimentos próximos com rapidez
           </h1>
-          <p className="text-base text-slate-300 sm:text-lg">
+          <p className="text-sm text-slate-300 sm:text-base">
             Busque por tipo de comércio, veja endereço, telefone, nota e já abra a rota no Google Maps.
           </p>
         </header>
 
-        <section className="mt-8 space-y-4">
+        <section className="mt-6 space-y-4">
           <form
             onSubmit={handleSubmit}
-            className="glass-panel grid gap-4 rounded-2xl border border-white/5 p-4 shadow-xl sm:p-6 lg:grid-cols-[1.2fr_1.2fr_auto]"
+            className="glass-panel grid gap-3 rounded-2xl border border-white/5 p-4 shadow-xl sm:p-5 lg:grid-cols-[1.2fr_1.2fr_auto]"
           >
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-slate-300">
@@ -161,7 +161,7 @@ export default function HomePage() {
           )}
         </section>
 
-        <section className="mt-8 space-y-4">
+        <section className="mt-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-slate-100">Resultados</h2>
             {resultados.length > 0 && (
@@ -203,18 +203,18 @@ export default function HomePage() {
 
           {visiveis.length > 0 && (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {visiveis.map((item) => (
                   <article
                     key={item.id}
-                    className="glass-panel group grid grid-cols-[110px_1fr] gap-3 rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[130px_1fr]"
+                    className="glass-panel group grid h-full grid-cols-[110px_1fr] gap-3 rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow md:grid-cols-[130px_1fr]"
                   >
                     <div className="overflow-hidden rounded-xl bg-white/5">
                       {item.fotoUrl ? (
                         <img
                           src={item.fotoUrl}
                           alt={item.nome}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105 aspect-[1/1]"
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105 aspect-[4/5]"
                           loading="lazy"
                         />
                       ) : (
@@ -223,54 +223,56 @@ export default function HomePage() {
                       </div>
                       )}
                     </div>
-                    <div className="flex flex-col justify-between gap-3">
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-semibold text-white">{item.nome}</h3>
-                          <p className="text-sm text-slate-300">{item.endereco}</p>
+                    <div className="flex h-full flex-col justify-between gap-2">
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="text-sm font-semibold text-white leading-tight line-clamp-3">
+                              {item.nome}
+                            </h3>
+                            <p className="text-xs text-slate-300 line-clamp-3">{item.endereco}</p>
+                          </div>
+                          {item.nota && (
+                            <span className="flex items-center gap-1 rounded-full bg-brand/15 px-2 py-1 text-xs font-semibold text-brand">
+                              <span aria-hidden>★</span>
+                              <span>{item.nota.toFixed(1)}</span>
+                            </span>
+                          )}
                         </div>
-                        {item.nota && (
-                          <span className="flex items-center gap-1 rounded-full bg-brand/15 px-3 py-1 text-sm font-semibold text-brand">
-                            <span aria-hidden>★</span>
-                            <span>{item.nota.toFixed(1)}</span>
+                        <div className="flex flex-wrap gap-2 text-xs text-slate-200">
+                          <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-2.5 py-1">
+                            <span className="text-brand">☎</span>
+                            <span>{item.telefone ?? 'Telefone não informado'}</span>
                           </span>
-                        )}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-3 text-sm text-slate-200">
-                        <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1">
-                          <span className="text-brand">☎</span>
-                          <span>{item.telefone ?? 'Telefone não informado'}</span>
-                        </span>
+                      <div className="flex items-center justify-between text-[13px] text-slate-300">
+                        <span className="line-clamp-2">Abra no Google Maps para rotas e avaliações</span>
+                        <a
+                          className="rounded-full bg-white/10 px-3 py-1.5 text-brand transition hover:bg-white/20 whitespace-nowrap"
+                          href={item.mapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Ver no Maps →
+                        </a>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-sm text-slate-300">
-                      <span>Abra no Google Maps para rotas e avaliações</span>
-                      <a
-                        className="rounded-full bg-white/10 px-3 py-2 text-brand transition hover:bg-white/20"
-                        href={item.mapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Ver no Maps →
-                      </a>
-                    </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                ))}
               </div>
               {visiveis.length < resultados.length && (
                 <div className="mt-4 flex justify-center">
-                  <button
-                    type="button"
-                    className="btn-primary px-5 py-3 text-sm"
-                    onClick={() => {
-                      const proximo = Math.min(visiveis.length + 12, resultados.length)
-                      setVisiveis(resultados.slice(0, proximo))
-                    }}
-                  >
-                    Mostrar mais ({resultados.length - visiveis.length} restantes)
-                  </button>
+                      <button
+                        type="button"
+                        className="btn-primary px-5 py-3 text-sm"
+                        onClick={() => {
+                          const proximo = Math.min(visiveis.length + 12, resultados.length)
+                          setVisiveis(resultados.slice(0, proximo))
+                        }}
+                      >
+                        Mostrar mais ({resultados.length - visiveis.length} restantes)
+                      </button>
                 </div>
               )}
             </>
