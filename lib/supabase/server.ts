@@ -5,12 +5,12 @@ import { requireEnv } from '../env'
 const url = requireEnv('SUPABASE_URL')
 const anonKey = requireEnv('SUPABASE_ANON_KEY')
 
-export const createSupabaseServerClient = () => {
-  const cookieStore = cookies()
-  const headerStore = headers()
+export const createSupabaseServerClient = async () => {
+  const cookieStore = await cookies()
+  const headerStore = await headers()
   const bearer =
     cookieStore.get('sb-access-token')?.value ||
-    headerStore.get('authorization')?.replace(/Bearer\\s+/i, '') ||
+    headerStore.get('authorization')?.replace(/^Bearer\s+/i, '') ||
     null
 
   return createClient(url, anonKey, {
