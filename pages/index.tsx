@@ -75,7 +75,7 @@ export default function HomePage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-surface text-slate-50">
       <Head>
-        <title>Super Cotação | Busque mercados perto de você</title>
+        <title>Busque por tipo de comércio, veja endereço, telefone, nota e já abra a rota no Google Maps.</title>
         <meta
           name="description"
           content="Encontre supermercados, açougues, padarias e mais perto da sua localização para comparar preços."
@@ -90,13 +90,9 @@ export default function HomePage() {
 
       <main className="relative mx-auto w-[96vw] max-w-screen-2xl px-2 pb-12 pt-6 sm:px-4">
         <header className="space-y-3 text-center">
-          <p className="text-[11px] uppercase tracking-[0.5em] text-slate-300">Super Cotação</p>
           <h1 className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl">
-            Compare mercados e estabelecimentos próximos com rapidez
-          </h1>
-          <p className="text-sm text-slate-300 sm:text-base">
             Busque por tipo de comércio, veja endereço, telefone, nota e já abra a rota no Google Maps.
-          </p>
+          </h1>
         </header>
 
         <section className="mt-6 space-y-4">
