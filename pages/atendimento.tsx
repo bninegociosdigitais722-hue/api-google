@@ -1,5 +1,6 @@
 import Head from 'next/head'
 import { useEffect, useMemo, useState } from 'react'
+import SidebarLayout from '../components/SidebarLayout'
 
 type Conversa = {
   id: number
@@ -143,8 +144,12 @@ export default function AtendimentoPage() {
         <title>Portal de Atendimento | Radar Local</title>
       </Head>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 lg:flex-row lg:gap-5 lg:py-10">
-        <section className="w-full lg:w-[32%]">
+      <SidebarLayout
+        title="Atendimento"
+        description="Gerencie disparos iniciais, veja conversas e responda direto pelo WhatsApp (Z-API)."
+      >
+        <div className="flex flex-col gap-6 lg:flex-row lg:gap-5">
+          <section className="w-full lg:w-[34%]">
           <div className="glass-panel rounded-3xl border border-white/5 p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <div>
@@ -219,9 +224,9 @@ export default function AtendimentoPage() {
               ))}
             </div>
           </div>
-        </section>
+          </section>
 
-        <section className="glass-panel w-full flex-1 rounded-3xl border border-white/5 p-5 shadow-xl">
+          <section className="glass-panel w-full flex-1 rounded-3xl border border-white/5 p-5 shadow-xl">
           {activeConversa ? (
             <div className="flex h-full flex-col gap-4">
               <header className="flex items-center justify-between gap-2 border-b border-white/5 pb-3">
@@ -281,8 +286,9 @@ export default function AtendimentoPage() {
               Selecione uma conversa ao lado.
             </div>
           )}
-        </section>
-      </main>
+          </section>
+        </div>
+      </SidebarLayout>
 
       {toast && (
         <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-white/10 px-4 py-2 text-sm text-slate-100 shadow-xl backdrop-blur">

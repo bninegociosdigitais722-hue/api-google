@@ -1,5 +1,6 @@
 import Head from 'next/head'
 import { FormEvent, useState } from 'react'
+import SidebarLayout from '../components/SidebarLayout'
 
 type Resultado = {
   id: string
@@ -86,27 +87,16 @@ export default function HomePage() {
           content="Encontre comércios perto de você, veja telefone, nota, e chame direto no WhatsApp."
         />
       </Head>
-
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-24 top-0 h-64 w-64 rounded-full bg-brand/25 blur-3xl" />
         <div className="absolute bottom-10 right-0 h-64 w-64 rounded-full bg-accent/25 blur-3xl" />
         <div className="absolute inset-0 bg-radial-dots" />
       </div>
-
-      <main className="relative mx-auto w-[96vw] max-w-screen-2xl px-3 pb-16 pt-10 sm:px-6">
-        <header className="flex flex-col items-center gap-4 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-            Radar Local
-          </div>
-          <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
-            Encontre comércios perto de você e chame direto no WhatsApp.
-          </h1>
-          <p className="max-w-3xl text-base text-slate-300 sm:text-lg">
-            Busque por categoria, filtre apenas quem tem WhatsApp ativo e abra rotas no Google Maps.
-          </p>
-        </header>
-
-        <section className="mt-10 space-y-5">
+      <SidebarLayout
+        title="Consultas"
+        description="Busque comércios, filtre apenas quem tem WhatsApp ativo e abra rotas no Maps."
+      >
+        <section className="space-y-5">
           <form
             onSubmit={handleSubmit}
             className="glass-panel grid gap-3 rounded-3xl border border-white/5 p-5 shadow-xl sm:p-6 lg:grid-cols-[1.1fr_1.1fr_auto]"
