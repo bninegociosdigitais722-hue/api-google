@@ -9,6 +9,7 @@ type Resultado = {
   nota: number | null
   mapsUrl: string
   fotoUrl: string | null
+  temWhatsapp?: boolean
 }
 
 type ApiResponse = {
@@ -21,6 +22,7 @@ const sugestoes = ['supermercado', 'açougue', 'padaria', 'hortifruti', 'mercear
 export default function HomePage() {
   const [tipo, setTipo] = useState('supermercado')
   const [localizacao, setLocalizacao] = useState('')
+  const [somenteWhatsapp, setSomenteWhatsapp] = useState(false)
   const [resultados, setResultados] = useState<Resultado[]>([])
   const [visiveis, setVisiveis] = useState<Resultado[]>([])
   const [removidos, setRemovidos] = useState<Set<string>>(new Set())
@@ -43,6 +45,9 @@ export default function HomePage() {
 
     try {
       const query = new URLSearchParams({ tipo, localizacao })
+      if (somenteWhatsapp) {
+        query.set('onlyWhatsapp', 'true')
+      }
       const response = await fetch(`/api/busca?${query.toString()}`)
       const data: ApiResponse = await response.json()
 
@@ -151,6 +156,19 @@ export default function HomePage() {
             </div>
           </form>
 
+          <div className="flex items-center gap-3 text-sm text-slate-200">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 cursor-pointer rounded border-white/30 bg-white/10 text-brand focus:ring-brand"
+                checked={somenteWhatsapp}
+                onChange={(e) => setSomenteWhatsapp(e.target.checked)}
+              />
+              Somente com WhatsApp
+            </label>
+            <span className="text-xs text-slate-400">Filtra apenas os estabelecimentos cujo telefone está ativo no WhatsApp via Z-API.</span>
+          </div>
+
           {erro && (
             <div className="glass-panel flex items-center gap-3 rounded-xl border border-red-500/30 px-4 py-3 text-red-100">
               <span className="text-lg">⚠️</span>
@@ -258,6 +276,11 @@ export default function HomePage() {
                         <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-slate-200">
                           <span className="text-brand">☎</span>
                           <span className="line-clamp-1">{item.telefone ?? 'Telefone não informado'}</span>
+                          {item.temWhatsapp && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
+                              <span>WhatsApp</span>
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-[12px] text-slate-300">

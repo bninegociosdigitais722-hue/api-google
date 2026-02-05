@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { normalizePhoneToBR, phoneExistsBatch } from '../../lib/zapi'
 
 type PlaceSummary = {
   id: string
@@ -8,11 +9,13 @@ type PlaceSummary = {
   nota: number | null
   mapsUrl: string
   fotoUrl: string | null
+  temWhatsapp?: boolean
 }
 
 type ErrorResponse = { message: string }
 
 type SuccessResponse = { resultados: PlaceSummary[] }
+type WhatsappStatus = Map<string, boolean>
 
 const normalizeType = (value: string): string | undefined => {
   const normalized = value
@@ -47,7 +50,7 @@ export default async function handler(
     return res.status(405).json({ message: 'Método não permitido.' })
   }
 
-  const { tipo, localizacao } = req.query
+  const { tipo, localizacao, onlyWhatsapp } = req.query
 
   if (!tipo || !localizacao || Array.isArray(tipo) || Array.isArray(localizacao)) {
     return res
@@ -250,8 +253,30 @@ export default async function handler(
       })
     )
 
+    // Checagem de WhatsApp com Z-API (se houver telefones)
+    let whatsappStatus: WhatsappStatus = new Map()
+    try {
+      const phones = detailed
+        .map((p) => normalizePhoneToBR(p.telefone))
+        .filter((p): p is string => Boolean(p))
+
+      if (phones.length > 0) {
+        whatsappStatus = await phoneExistsBatch(phones)
+      }
+    } catch (err) {
+      log('zapi_check_error', { error: (err as Error)?.message })
+    }
+
+    const enriched = detailed.map((place) => {
+      const normalizedPhone = normalizePhoneToBR(place.telefone)
+      const temWhatsapp = normalizedPhone ? whatsappStatus.get(normalizedPhone) ?? false : false
+      return { ...place, temWhatsapp }
+    })
+
+    const filtered = onlyWhatsapp === 'true' ? enriched.filter((p) => p.temWhatsapp) : enriched
+
     res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=120')
-    return res.status(200).json({ resultados: detailed })
+    return res.status(200).json({ resultados: filtered })
   } catch (error) {
     log('unexpected_error', { error: (error as Error)?.message })
     return res
