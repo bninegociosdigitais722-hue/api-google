@@ -1,5 +1,5 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import { normalizePhoneToBR, phoneExistsBatch } from '../../lib/zapi'
+import { NextRequest, NextResponse } from 'next/server'
+import { normalizePhoneToBR, phoneExistsBatch } from '../../../lib/zapi'
 
 type PlaceSummary = {
   id: string
@@ -12,27 +12,28 @@ type PlaceSummary = {
   temWhatsapp?: boolean
 }
 
-type ErrorResponse = { message: string }
-
-type SuccessResponse = { resultados: PlaceSummary[] }
 type WhatsappStatus = Map<string, boolean>
 
 const normalizeType = (value: string): string | undefined => {
   const normalized = value
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/\\s+/g, '_')
     .replace(/[^a-z_]/g, '')
     .slice(0, 60)
 
   return normalized || undefined
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<SuccessResponse | ErrorResponse>
-) {
+export const runtime = 'nodejs'
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl
+  const tipo = searchParams.get('tipo')
+  const localizacao = searchParams.get('localizacao')
+  const onlyWhatsapp = searchParams.get('onlyWhatsapp')
+
   const requestId = Math.random().toString(16).slice(2, 10)
   const log = (message: string, extra?: Record<string, any>) => {
     console.log(
@@ -45,32 +46,25 @@ export default async function handler(
     )
   }
 
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET')
-    return res.status(405).json({ message: 'Método não permitido.' })
-  }
-
-  const { tipo, localizacao, onlyWhatsapp } = req.query
-
-  if (!tipo || !localizacao || Array.isArray(tipo) || Array.isArray(localizacao)) {
-    return res
-      .status(400)
-      .json({ message: 'Parâmetros "tipo" e "localizacao" são obrigatórios.' })
+  if (!tipo || !localizacao) {
+    return NextResponse.json(
+      { message: 'Parâmetros \"tipo\" e \"localizacao\" são obrigatórios.' },
+      { status: 400 }
+    )
   }
 
   const apiKey = process.env.GOOGLE_MAPS_API_KEY
-
   if (!apiKey) {
-    return res
-      .status(500)
-      .json({ message: 'Variável de ambiente GOOGLE_MAPS_API_KEY não configurada.' })
+    return NextResponse.json(
+      { message: 'Variável de ambiente GOOGLE_MAPS_API_KEY não configurada.' },
+      { status: 500 }
+    )
   }
 
   const tipoText = tipo.trim()
   const localizacaoText = localizacao.trim()
 
   const fetchCoords = async (): Promise<{ lat: number; lng: number } | null> => {
-    // 1) Tenta Geocoding (preferencial)
     try {
       const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
         localizacaoText
@@ -99,7 +93,6 @@ export default async function handler(
       log('geocode_error', { error: (err as Error)?.message })
     }
 
-    // 2) Fallback: Places Text Search para obter um ponto central
     try {
       const textUrl = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json')
       textUrl.searchParams.set('query', localizacaoText)
@@ -139,10 +132,13 @@ export default async function handler(
   const coords = await fetchCoords()
   if (!coords) {
     log('coords_not_found', { localizacao: localizacaoText })
-    return res.status(404).json({
-      message:
-        'Localização não encontrada. Tente incluir bairro + cidade/UF (ex.: "Recreio dos Bandeirantes, Rio de Janeiro").',
-    })
+    return NextResponse.json(
+      {
+        message:
+          'Localização não encontrada. Tente incluir bairro + cidade/UF (ex.: \"Recreio dos Bandeirantes, Rio de Janeiro\").',
+      },
+      { status: 404 }
+    )
   }
 
   try {
@@ -159,7 +155,6 @@ export default async function handler(
     nearbyUrl.searchParams.set('language', 'pt-BR')
     nearbyUrl.searchParams.set('key', apiKey)
 
-    // Função para coletar múltiplas páginas (até ~60 resultados) usando next_page_token
     const fetchNearbyPages = async (url: URL, maxResults = 60) => {
       const collected: any[] = []
       let pageUrl: URL | null = new URL(url.toString())
@@ -185,7 +180,6 @@ export default async function handler(
         }
 
         if (json.next_page_token && collected.length < maxResults) {
-          // A Google exige um pequeno atraso antes de usar o next_page_token
           await new Promise((r) => setTimeout(r, 1500))
           pageUrl = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json')
           pageUrl.searchParams.set('pagetoken', json.next_page_token)
@@ -201,16 +195,18 @@ export default async function handler(
     const nearbyData = await fetchNearbyPages(nearbyUrl, 30)
 
     if ('error' in nearbyData) {
-      return res.status(502).json({
-        message:
-          nearbyData.error ||
-          'Google retornou REQUEST_DENIED na Places Nearby. Verifique as restrições da chave (IP/domínio) e se as APIs estão liberadas.',
-      })
+      return NextResponse.json(
+        {
+          message:
+            nearbyData.error ||
+            'Google retornou REQUEST_DENIED na Places Nearby. Verifique as restrições da chave (IP/domínio) e se as APIs estão liberadas.',
+        },
+        { status: 502 }
+      )
     }
 
     if (!nearbyData.results || nearbyData.results.length === 0) {
-      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=120')
-      return res.status(200).json({ resultados: [] })
+      return NextResponse.json({ resultados: [] }, { status: 200, headers: { 'Cache-Control': 's-maxage=120, stale-while-revalidate=120' } })
     }
 
     const limitedResults = nearbyData.results.slice(0, 30)
@@ -237,9 +233,7 @@ export default async function handler(
         const endereco = details.formatted_address ?? place.vicinity ?? 'Endereço não informado'
 
         const photoRef =
-          details.photos?.[0]?.photo_reference ??
-          place.photos?.[0]?.photo_reference ??
-          null
+          details.photos?.[0]?.photo_reference ?? place.photos?.[0]?.photo_reference ?? null
 
         return {
           id: place.place_id,
@@ -253,7 +247,6 @@ export default async function handler(
       })
     )
 
-    // Checagem de WhatsApp com Z-API (se houver telefones)
     let whatsappStatus: WhatsappStatus = new Map()
     try {
       const phones = detailed
@@ -275,12 +268,15 @@ export default async function handler(
 
     const filtered = onlyWhatsapp === 'true' ? enriched.filter((p) => p.temWhatsapp) : enriched
 
-    res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=120')
-    return res.status(200).json({ resultados: filtered })
+    return NextResponse.json(filtered.length ? { resultados: filtered } : { resultados: [] }, {
+      status: 200,
+      headers: { 'Cache-Control': 's-maxage=120, stale-while-revalidate=120' },
+    })
   } catch (error) {
     log('unexpected_error', { error: (error as Error)?.message })
-    return res
-      .status(500)
-      .json({ message: 'Erro ao consultar a Google Maps API. Tente novamente em instantes.' })
+    return NextResponse.json(
+      { message: 'Erro ao consultar a Google Maps API. Tente novamente em instantes.' },
+      { status: 500 }
+    )
   }
 }

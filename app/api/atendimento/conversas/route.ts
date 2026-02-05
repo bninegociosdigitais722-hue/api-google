@@ -1,5 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import supabase from '../../../lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import supabaseAdmin from '../../../../lib/supabase/admin'
+import { resolveOwnerId } from '../../../../lib/tenant'
 
 type Conversa = {
   id: number
@@ -14,30 +15,33 @@ type Conversa = {
   } | null
 }
 
-type ResponseData = { conversas: Conversa[] }
+export const runtime = 'nodejs'
 
-export default async function handler(
-  _req: NextApiRequest,
-  res: NextApiResponse<ResponseData | { message: string }>
-) {
-  const { data: contacts, error } = await supabase
+export async function GET(req: NextRequest) {
+  const ownerId = resolveOwnerId({
+    host: req.headers.get('x-forwarded-host') || req.headers.get('host'),
+  })
+
+  const { data: contacts, error } = await supabaseAdmin
     .from('contacts')
     .select('id, phone, name, is_whatsapp, last_message_at')
+    .eq('owner_id', ownerId)
     .order('last_message_at', { ascending: false })
     .limit(200)
 
   if (error) {
-    return res.status(500).json({ message: error.message })
+    return NextResponse.json({ message: error.message }, { status: 500 })
   }
 
   const contactIds = contacts?.map((c) => c.id) ?? []
   let messagesMap = new Map<number, Conversa['last_message']>()
 
   if (contactIds.length) {
-    const { data: msgs } = await supabase
+    const { data: msgs } = await supabaseAdmin
       .from('messages')
       .select('contact_id, body, direction, created_at')
       .in('contact_id', contactIds)
+      .eq('owner_id', ownerId)
       .order('created_at', { ascending: false })
 
     if (msgs) {
@@ -59,5 +63,5 @@ export default async function handler(
       last_message: messagesMap.get(c.id) ?? null,
     })) ?? []
 
-  return res.status(200).json({ conversas })
+  return NextResponse.json({ conversas }, { status: 200 })
 }

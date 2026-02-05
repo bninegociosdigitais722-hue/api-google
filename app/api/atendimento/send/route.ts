@@ -1,6 +1,7 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import supabase from '../../../lib/supabase'
-import { normalizePhoneToBR, sendText } from '../../../lib/zapi'
+import { NextRequest, NextResponse } from 'next/server'
+import supabaseAdmin from '../../../../lib/supabase/admin'
+import { normalizePhoneToBR, sendText } from '../../../../lib/zapi'
+import { resolveOwnerId } from '../../../../lib/tenant'
 
 type BodyPayload = {
   phones?: string[]
@@ -10,21 +11,20 @@ type BodyPayload = {
 
 type SendResult = { phone: string; status: 'sent' | 'failed'; error?: string }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<{ results: SendResult[] } | { message: string }>
-) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST')
-    return res.status(405).json({ message: 'Método não permitido.' })
-  }
+export const runtime = 'nodejs'
 
-  const { phones = [], message, name }: BodyPayload = req.body || {}
+export async function POST(req: NextRequest) {
+  const ownerId = resolveOwnerId({
+    host: req.headers.get('x-forwarded-host') || req.headers.get('host'),
+  })
+
+  const { phones = [], message, name }: BodyPayload = await req.json().catch(() => ({}))
 
   if (!Array.isArray(phones) || phones.length === 0 || !message?.trim()) {
-    return res
-      .status(400)
-      .json({ message: 'Envie um array de telefones e uma mensagem.' })
+    return NextResponse.json(
+      { message: 'Envie um array de telefones e uma mensagem.' },
+      { status: 400 }
+    )
   }
 
   const normalizedPhones = phones
@@ -32,15 +32,24 @@ export default async function handler(
     .filter((p): p is string => Boolean(p))
 
   if (normalizedPhones.length === 0) {
-    return res.status(400).json({ message: 'Nenhum telefone válido após normalização.' })
+    return NextResponse.json(
+      { message: 'Nenhum telefone válido após normalização.' },
+      { status: 400 }
+    )
   }
 
   const ensureContact = async (phone: string) => {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('contacts')
       .upsert(
-        { phone, name: name ?? null, is_whatsapp: true, last_message_at: new Date().toISOString() },
-        { onConflict: 'phone' }
+        {
+          owner_id: ownerId,
+          phone,
+          name: name ?? null,
+          is_whatsapp: true,
+          last_message_at: new Date().toISOString(),
+        },
+        { onConflict: 'owner_id,phone' }
       )
       .select('id')
       .single()
@@ -58,7 +67,8 @@ export default async function handler(
       const contactId = await ensureContact(phone)
       const resp = await sendText(phone, message.trim())
 
-      await supabase.from('messages').insert({
+      await supabaseAdmin.from('messages').insert({
+        owner_id: ownerId,
         contact_id: contactId,
         direction: 'out',
         body: message.trim(),
@@ -66,10 +76,11 @@ export default async function handler(
         provider_message_id: resp.messageId ?? null,
       })
 
-      await supabase
+      await supabaseAdmin
         .from('contacts')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', contactId)
+        .eq('owner_id', ownerId)
 
       results.push({ phone, status: 'sent' })
     } catch (err) {
@@ -81,5 +92,5 @@ export default async function handler(
     }
   }
 
-  return res.status(200).json({ results })
+  return NextResponse.json({ results }, { status: 200 })
 }
