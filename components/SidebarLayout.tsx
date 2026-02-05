@@ -1,5 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
+"use client"
+
 import Link from 'next/link'
-import { useRouter } from 'next/router'
+import { usePathname } from 'next/navigation'
 import { ReactNode } from 'react'
 
 type SidebarLayoutProps = {
@@ -16,7 +19,7 @@ const navItems = [
 ]
 
 export default function SidebarLayout({ title, description, children }: SidebarLayoutProps) {
-  const router = useRouter()
+  const pathname = usePathname()
 
   return (
     <div className="min-h-screen bg-surface text-slate-50">
@@ -28,7 +31,7 @@ export default function SidebarLayout({ title, description, children }: SidebarL
           </div>
           <nav className="space-y-1">
             {navItems.map((item) => {
-              const active = router.pathname === item.href
+              const active = pathname === item.href || pathname === '/' + item.href?.replace(/^\//, '')
               return (
                 <Link
                   key={item.href}
