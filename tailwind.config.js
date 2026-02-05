@@ -8,7 +8,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Manrope"', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['"Space Grotesk"', '"Manrope"', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         brand: '#38bdf8',

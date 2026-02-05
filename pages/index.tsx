@@ -80,10 +80,10 @@ export default function HomePage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-surface text-slate-50">
       <Head>
-        <title>Busque por tipo de comércio, veja endereço, telefone, nota e já abra a rota no Google Maps.</title>
+        <title>Radar Local | Descubra, filtre por WhatsApp e fale agora</title>
         <meta
           name="description"
-          content="Encontre supermercados, açougues, padarias e mais perto da sua localização para comparar preços."
+          content="Encontre comércios perto de você, veja telefone, nota, e chame direto no WhatsApp."
         />
       </Head>
 
@@ -93,28 +93,34 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-radial-dots" />
       </div>
 
-      <main className="relative mx-auto w-[96vw] max-w-screen-2xl px-2 pb-12 pt-6 sm:px-4">
-        <header className="space-y-3 text-center">
-          <h1 className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl">
-            Busque por tipo de comércio, veja endereço, telefone, nota e já abra a rota no Google Maps.
+      <main className="relative mx-auto w-[96vw] max-w-screen-2xl px-3 pb-16 pt-10 sm:px-6">
+        <header className="flex flex-col items-center gap-4 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+            Radar Local
+          </div>
+          <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
+            Encontre comércios perto de você e chame direto no WhatsApp.
           </h1>
+          <p className="max-w-3xl text-base text-slate-300 sm:text-lg">
+            Busque por categoria, filtre apenas quem tem WhatsApp ativo e abra rotas no Google Maps.
+          </p>
         </header>
 
-        <section className="mt-6 space-y-4">
+        <section className="mt-10 space-y-5">
           <form
             onSubmit={handleSubmit}
-            className="glass-panel grid gap-3 rounded-2xl border border-white/5 p-4 shadow-xl sm:p-5 lg:grid-cols-[1.2fr_1.2fr_auto]"
+            className="glass-panel grid gap-3 rounded-3xl border border-white/5 p-5 shadow-xl sm:p-6 lg:grid-cols-[1.1fr_1.1fr_auto]"
           >
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between text-sm text-slate-300">
-                <span>Tipo de estabelecimento</span>
+                <span className="font-semibold text-slate-200">Tipo de estabelecimento</span>
                 <div className="flex flex-wrap gap-2">
                   {sugestoes.map((item) => (
                     <button
                       key={item}
                       type="button"
                       onClick={() => setTipo(item)}
-                      className={`rounded-full px-3 py-1 transition ${
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         tipo === item
                           ? 'bg-brand/20 text-brand ring-1 ring-brand/40'
                           : 'bg-white/5 text-slate-200 hover:bg-white/10'
@@ -126,7 +132,7 @@ export default function HomePage() {
                 </div>
               </div>
               <input
-                className="input-field"
+                className="input-field h-[52px] text-base"
                 placeholder="açougue, supermercado, padaria"
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value)}
@@ -134,14 +140,14 @@ export default function HomePage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="flex items-center justify-between text-sm text-slate-300" htmlFor="localizacao">
-                <span>Localização</span>
+                <span className="font-semibold text-slate-200">Localização</span>
                 <span className="text-xs text-slate-400">bairro, cidade ou CEP</span>
               </label>
               <input
                 id="localizacao"
-                className="input-field"
+                className="input-field h-[52px] text-base"
                 placeholder="Ex.: Pinheiros, São Paulo ou 01310-930"
                 value={localizacao}
                 onChange={(e) => setLocalizacao(e.target.value)}
@@ -150,13 +156,17 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-end">
-              <button type="submit" className="btn-primary w-full" disabled={loading}>
+              <button
+                type="submit"
+                className="btn-primary w-full text-base font-semibold shadow-glow"
+                disabled={loading}
+              >
                 {loading ? 'Buscando...' : 'Buscar'}
               </button>
             </div>
           </form>
 
-          <div className="flex items-center gap-3 text-sm text-slate-200">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200">
             <label className="inline-flex items-center gap-2">
               <input
                 type="checkbox"
@@ -179,7 +189,10 @@ export default function HomePage() {
 
         <section className="mt-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-100">Resultados</h2>
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Painel</p>
+              <h2 className="text-2xl font-semibold text-slate-50">Resultados</h2>
+            </div>
             {resultados.length > 0 && (
               <button
                 type="button"
@@ -223,7 +236,7 @@ export default function HomePage() {
                 {visiveis.map((item) => (
                   <article
                     key={item.id}
-                    className="glass-panel group relative flex h-full flex-col rounded-2xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
+                    className="glass-panel group relative flex h-full flex-col rounded-3xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
                   >
                     <button
                       type="button"
@@ -241,7 +254,7 @@ export default function HomePage() {
                     >
                       ✕
                     </button>
-                    <div className="overflow-hidden rounded-xl bg-white/5">
+                    <div className="overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/5">
                       {item.fotoUrl ? (
                         <img
                           src={item.fotoUrl}
@@ -256,7 +269,7 @@ export default function HomePage() {
                       )}
                     </div>
                     <div className="mt-3 flex h-full flex-col justify-between gap-2">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="space-y-1">
                             <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">
@@ -278,7 +291,7 @@ export default function HomePage() {
                           <span className="line-clamp-1">{item.telefone ?? 'Telefone não informado'}</span>
                           {item.temWhatsapp && (
                             <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
-                              <span>WhatsApp</span>
+                              <span className="text-emerald-100">WhatsApp</span>
                             </span>
                           )}
                         </span>
