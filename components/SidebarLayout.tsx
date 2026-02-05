@@ -13,7 +13,7 @@ type SidebarLayoutProps = {
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/', label: 'Consultas' },
+  { href: '/consultas', label: 'Consultas' },
   { href: '/atendimento', label: 'Atendimento' },
   { href: '/configuracoes', label: 'Configurações' },
 ]
@@ -31,7 +31,7 @@ export default function SidebarLayout({ title, description, children }: SidebarL
           </div>
           <nav className="space-y-1">
             {navItems.map((item) => {
-              const active = pathname === item.href || pathname === '/' + item.href?.replace(/^\//, '')
+              const active = pathname === item.href
               return (
                 <Link
                   key={item.href}
