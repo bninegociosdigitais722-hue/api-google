@@ -13,10 +13,9 @@ body {
   margin: 0;
   font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   background:
-    radial-gradient(1200px 1200px at 12% 8%, rgba(56, 189, 248, 0.18), transparent 45%),
-    radial-gradient(1000px 1000px at 88% 12%, rgba(249, 115, 22, 0.16), transparent 50%),
-    radial-gradient(900px 900px at 50% 70%, rgba(255, 255, 255, 0.06), transparent 55%),
-    #0b1224;
+    radial-gradient(1600px 1600px at 15% 15%, rgba(56, 189, 248, 0.12), transparent 40%),
+    radial-gradient(1400px 1400px at 85% 20%, rgba(249, 115, 22, 0.12), transparent 45%),
+    linear-gradient(135deg, #0f172a 0%, #0b1224 50%, #0f172a 100%);
   color: #e2e8f0;
 }
 

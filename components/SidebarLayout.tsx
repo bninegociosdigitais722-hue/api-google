@@ -20,8 +20,8 @@ export default function SidebarLayout({ title, description, children }: SidebarL
 
   return (
     <div className="min-h-screen bg-surface text-slate-50">
-      <div className="mx-auto flex w-[98vw] max-w-screen-2xl gap-6 px-3 py-6 sm:px-5 lg:px-8">
-        <aside className="sticky top-4 hidden h-[92vh] w-60 flex-shrink-0 flex-col rounded-3xl bg-white/5 p-4 shadow-xl ring-1 ring-white/5 lg:flex">
+      <div className="mx-auto flex w-full gap-6 px-4 py-6 sm:px-6 lg:px-10">
+        <aside className="sticky top-4 hidden h-[92vh] w-64 flex-shrink-0 flex-col rounded-3xl bg-white/5 p-5 shadow-xl ring-1 ring-white/5 lg:flex">
           <div className="mb-6 space-y-1">
             <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Radar Local</p>
             <h1 className="text-xl font-semibold text-white">Painel</h1>
