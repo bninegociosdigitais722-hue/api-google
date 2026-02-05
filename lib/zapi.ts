@@ -3,6 +3,11 @@ type ZapiBatchResponse = {
   inputPhone: string
   lid?: string | null
 }
+type SendTextResponse = {
+  messageId?: string
+  status?: string
+  detail?: string
+}
 
 const ensureEnv = (name: string): string => {
   const value = process.env[name]
@@ -53,4 +58,31 @@ export const phoneExistsBatch = async (phones: string[]): Promise<Map<string, bo
     map.set(entry.inputPhone, Boolean(entry.exists))
   })
   return map
+}
+
+export const sendText = async (phone: string, message: string): Promise<SendTextResponse> => {
+  const instanceId = ensureEnv('ZAPI_INSTANCE_ID')
+  const token = ensureEnv('ZAPI_TOKEN')
+  const clientToken = ensureEnv('ZAPI_CLIENT_TOKEN')
+
+  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Client-Token': clientToken,
+    },
+    body: JSON.stringify({
+      phone,
+      message,
+    }),
+  })
+
+  if (!resp.ok) {
+    const text = await resp.text()
+    throw new Error(`Z-API respondeu ${resp.status}: ${text || resp.statusText}`)
+  }
+
+  return (await resp.json()) as SendTextResponse
 }
