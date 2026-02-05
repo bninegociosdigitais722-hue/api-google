@@ -318,7 +318,7 @@ export default function HomePage() {
             </>
           )}
         </section>
-      </main>
+      </SidebarLayout>
     </div>
   )
 }
