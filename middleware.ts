@@ -9,6 +9,22 @@ export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
   const isApi = pathname.startsWith('/api')
 
+  // Redireciona raiz para prefixo padrão conforme host (ex.: admin → /admin/dashboard; atendimento → /atendimento)
+  if (rule && pathname === '/') {
+    const hasAdmin = rule.prefixes.includes('/admin')
+    const hasAtendimento = rule.prefixes.includes('/atendimento')
+    if (hasAdmin) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/admin/dashboard'
+      return NextResponse.redirect(url)
+    }
+    if (hasAtendimento) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/atendimento'
+      return NextResponse.redirect(url)
+    }
+  }
+
   if (!rule || !pathAllowedForHost(pathname, rule)) {
     if (isApi) {
       return NextResponse.json({ message: 'Not found' }, { status: 404 })

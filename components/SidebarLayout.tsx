@@ -5,21 +5,23 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ReactNode } from 'react'
 
+type NavItem = { href: string; label: string; badge?: string }
 type SidebarLayoutProps = {
   title: string
   description?: string
   children: ReactNode
+  navItems?: NavItem[]
 }
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/consultas', label: 'Consultas' },
-  { href: '/atendimento', label: 'Atendimento' },
-  { href: '/configuracoes', label: 'Configurações' },
+const defaultNav: NavItem[] = [
+  { href: '/admin/dashboard', label: 'Dashboard' },
+  { href: '/admin/consultas', label: 'Consultas' },
+  { href: '/admin/configuracoes', label: 'Configurações', badge: 'em breve' },
 ]
 
-export default function SidebarLayout({ title, description, children }: SidebarLayoutProps) {
+export default function SidebarLayout({ title, description, children, navItems }: SidebarLayoutProps) {
   const pathname = usePathname()
+  const items = navItems ?? defaultNav
 
   return (
     <div className="min-h-screen bg-surface text-slate-50">
@@ -30,7 +32,7 @@ export default function SidebarLayout({ title, description, children }: SidebarL
             <h1 className="text-xl font-semibold text-white">Painel</h1>
           </div>
           <nav className="space-y-1">
-            {navItems.map((item) => {
+            {items.map((item) => {
               const active = pathname === item.href
               return (
                 <Link
@@ -43,9 +45,9 @@ export default function SidebarLayout({ title, description, children }: SidebarL
                   }`}
                 >
                   {item.label}
-                  {item.label === 'Configurações' && (
+                  {item.badge && (
                     <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-slate-300">
-                      em breve
+                      {item.badge}
                     </span>
                   )}
                 </Link>
