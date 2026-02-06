@@ -13,6 +13,7 @@ export function middleware(req: NextRequest) {
   if (rule && pathname === '/') {
     const hasAdmin = rule.prefixes.includes('/admin')
     const hasAtendimento = rule.prefixes.includes('/atendimento')
+    const hasApp = rule.prefixes.includes('/app')
     if (hasAdmin) {
       const url = req.nextUrl.clone()
       url.pathname = '/admin/dashboard'
@@ -21,6 +22,11 @@ export function middleware(req: NextRequest) {
     if (hasAtendimento) {
       const url = req.nextUrl.clone()
       url.pathname = '/atendimento'
+      return NextResponse.redirect(url)
+    }
+    if (hasApp) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/app'
       return NextResponse.redirect(url)
     }
   }
