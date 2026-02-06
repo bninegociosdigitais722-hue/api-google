@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
+import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { normalizePhoneToBR, sendText } from '../../../../lib/zapi'
 import { resolveOwnerId } from '../../../../lib/tenant'
 
@@ -14,9 +15,13 @@ type SendResult = { phone: string; status: 'sent' | 'failed'; error?: string }
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
-  const ownerId = resolveOwnerId({
-    host: req.headers.get('x-forwarded-host') || req.headers.get('host'),
-  })
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const supabaseServer = await createSupabaseServerClient()
+  const { data: sessionData } = await supabaseServer.auth.getSession()
+  const user = sessionData.session?.user ?? null
+  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
+  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+  const db = user ? supabaseServer : supabaseAdmin
 
   const { phones = [], message, name }: BodyPayload = await req.json().catch(() => ({}))
 
@@ -39,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ensureContact = async (phone: string) => {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('contacts')
       .upsert(
         {
@@ -67,7 +72,7 @@ export async function POST(req: NextRequest) {
       const contactId = await ensureContact(phone)
       const resp = await sendText(phone, message.trim())
 
-      await supabaseAdmin.from('messages').insert({
+      await db.from('messages').insert({
         owner_id: ownerId,
         contact_id: contactId,
         direction: 'out',
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
         provider_message_id: resp.messageId ?? null,
       })
 
-      await supabaseAdmin
+      await db
         .from('contacts')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', contactId)

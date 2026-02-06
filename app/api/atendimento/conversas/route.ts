@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
+import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { resolveOwnerId } from '../../../../lib/tenant'
 
 type Conversa = {
@@ -18,11 +19,17 @@ type Conversa = {
 export const runtime = 'nodejs'
 
 export async function GET(req: NextRequest) {
-  const ownerId = resolveOwnerId({
-    host: req.headers.get('x-forwarded-host') || req.headers.get('host'),
-  })
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const supabaseServer = await createSupabaseServerClient()
+  const { data: sessionData } = await supabaseServer.auth.getSession()
+  const user = sessionData.session?.user ?? null
+  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
+  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
 
-  const { data: contacts, error } = await supabaseAdmin
+  // Usa supabase com RLS se autenticado; fallback para admin se não há sessão (com log).
+  const db = user ? supabaseServer : supabaseAdmin
+
+  const { data: contacts, error } = await db
     .from('contacts')
     .select('id, phone, name, is_whatsapp, last_message_at')
     .eq('owner_id', ownerId)

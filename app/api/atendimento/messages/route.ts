@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
+import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { normalizePhoneToBR } from '../../../../lib/zapi'
 import { resolveOwnerId } from '../../../../lib/tenant'
 
@@ -15,9 +16,13 @@ type Message = {
 export const runtime = 'nodejs'
 
 export async function GET(req: NextRequest) {
-  const ownerId = resolveOwnerId({
-    host: req.headers.get('x-forwarded-host') || req.headers.get('host'),
-  })
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const supabaseServer = await createSupabaseServerClient()
+  const { data: sessionData } = await supabaseServer.auth.getSession()
+  const user = sessionData.session?.user ?? null
+  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
+  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+  const db = user ? supabaseServer : supabaseAdmin
 
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) {
@@ -29,7 +34,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Telefone inválido.' }, { status: 400 })
   }
 
-  const { data: contact, error: contactError } = await supabaseAdmin
+  const { data: contact, error: contactError } = await db
     .from('contacts')
     .select('id, phone, name')
     .eq('phone', normalized)
@@ -40,7 +45,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Contato não encontrado.' }, { status: 404 })
   }
 
-  const { data: messages, error } = await supabaseAdmin
+  const { data: messages, error } = await db
     .from('messages')
     .select('id, contact_id, body, direction, status, created_at')
     .eq('contact_id', contact.id)

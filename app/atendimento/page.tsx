@@ -1,10 +1,8 @@
 import { headers } from 'next/headers'
-import AtendimentoClient, {
-  Conversa,
-  Message,
-} from './AtendimentoClient'
+import AtendimentoClient, { Conversa, Message } from './AtendimentoClient'
 import supabaseAdmin from '../../lib/supabase/admin'
 import { resolveOwnerId } from '../../lib/tenant'
+import { createSupabaseServerClient } from '../../lib/supabase/server'
 
 export const metadata = {
   title: 'Atendimento | Radar Local',
@@ -13,13 +11,19 @@ export const metadata = {
 export default async function AtendimentoPage() {
   const headersList = await headers()
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
-  const ownerId = resolveOwnerId({ host })
+  const supabaseServer = await createSupabaseServerClient()
+  const { data: sessionData } = await supabaseServer.auth.getSession()
+  const user = sessionData.session?.user ?? null
+  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
+  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+
+  const db = user ? supabaseServer : supabaseAdmin
 
   let conversas: Conversa[] = []
   let messagesByPhone: Record<string, Message[]> = {}
 
   try {
-    const { data: contacts } = await supabaseAdmin
+    const { data: contacts } = await db
       .from('contacts')
       .select('id, phone, name, is_whatsapp, last_message_at')
       .eq('owner_id', ownerId)
@@ -30,7 +34,7 @@ export default async function AtendimentoPage() {
     let messagesMap = new Map<number, Conversa['last_message']>()
 
     if (contactIds.length) {
-      const { data: msgs } = await supabaseAdmin
+      const { data: msgs } = await db
         .from('messages')
         .select('contact_id, body, direction, created_at')
         .in('contact_id', contactIds)
@@ -60,7 +64,7 @@ export default async function AtendimentoPage() {
     const firstPhone = conversas[0]?.phone
     if (firstPhone) {
       const contactId = conversas[0].id
-      const { data: msgs } = await supabaseAdmin
+      const { data: msgs } = await db
         .from('messages')
         .select('id, contact_id, body, direction, status, created_at')
         .eq('contact_id', contactId)
