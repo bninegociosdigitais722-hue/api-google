@@ -178,7 +178,6 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       <SidebarLayout
         title="Atendimento"
         description="Conversas via WhatsApp (Z-API). Dispare, acompanhe e responda."
-        navItems={[{ href: '/atendimento', label: 'Atendimento' }]}
       >
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
           {/* Lista de conversas */}

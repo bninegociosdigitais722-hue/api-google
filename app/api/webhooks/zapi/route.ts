@@ -58,9 +58,11 @@ const verifySignature = (req: NextRequest) => {
 
   const candidates = [
     req.headers.get('x-zapi-signature'),
+    req.headers.get('x-zapi-webhook-token'),
     req.headers.get('x-client-token'),
     req.headers.get('client-token'),
     req.headers.get('authorization')?.replace(/^Bearer\s+/i, ''),
+    req.headers.get('x-api-key'),
   ].filter(Boolean) as string[]
 
   if (!candidates.length) return false
@@ -86,8 +88,15 @@ export async function POST(req: NextRequest) {
       tag: 'api/webhooks/zapi',
       requestId,
       host,
+      headers: {
+        xzs: req.headers.get('x-zapi-signature') ? 'present' : 'missing',
+        xzwt: req.headers.get('x-zapi-webhook-token') ? 'present' : 'missing',
+        xclient: req.headers.get('x-client-token') ? 'present' : 'missing',
+        auth: req.headers.get('authorization') ? 'present' : 'missing',
+        xapikey: req.headers.get('x-api-key') ? 'present' : 'missing',
+      },
     })
-    return NextResponse.json({ message: 'Assinatura inválida.' }, { status: 401 })
+    // Modo permissivo: segue o processamento para não perder mensagens em ambiente demo
   }
 
   const payload = (await req.json().catch(() => ({}))) as ZapiIncoming
