@@ -1,7 +1,7 @@
 "use client"
 
 import Head from 'next/head'
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import SidebarLayout from '../../../../components/SidebarLayout'
 
 type Resultado = {
@@ -22,15 +22,22 @@ type ApiResponse = {
 
 const sugestoes = ['supermercado', 'açougue', 'padaria', 'hortifruti', 'mercearia']
 
-export default function ConsultasClient() {
+type Props = {
+  initialResults?: Resultado[]
+  total?: number | null
+  error?: string | null
+}
+
+export default function ConsultasClient({ initialResults = [], total = null, error: initialError = null }: Props) {
   const [tipo, setTipo] = useState('supermercado')
   const [localizacao, setLocalizacao] = useState('')
   const [somenteWhatsapp, setSomenteWhatsapp] = useState(false)
-  const [resultados, setResultados] = useState<Resultado[]>([])
-  const [visiveis, setVisiveis] = useState<Resultado[]>([])
+  const [resultados, setResultados] = useState<Resultado[]>(initialResults)
+  const [visiveis, setVisiveis] = useState<Resultado[]>(initialResults.slice(0, 18))
   const [removidos, setRemovidos] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
+  const [erro, setErro] = useState<string | null>(initialError)
+  const [totalCount, setTotalCount] = useState<number | null>(total)
 
   const countRestantes = useMemo(() => resultados.length - visiveis.length, [resultados, visiveis])
 
@@ -53,7 +60,7 @@ export default function ConsultasClient() {
       if (somenteWhatsapp) {
         query.set('onlyWhatsapp', 'true')
       }
-      const response = await fetch(`/api/busca?${query.toString()}`)
+      const response = await fetch(`/api/admin/busca?${query.toString()}`)
       const data: ApiResponse = await response.json()
 
       if (!response.ok) {
@@ -62,6 +69,7 @@ export default function ConsultasClient() {
 
       setResultados(data.resultados)
       setVisiveis(data.resultados.slice(0, 18))
+      setTotalCount(data.resultados.length)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro inesperado ao buscar.'
       setErro(message)
@@ -206,6 +214,9 @@ export default function ConsultasClient() {
               >
                 📤 Exportar CSV (nome, endereço, telefone)
               </button>
+            )}
+            {totalCount !== null && (
+              <div className="text-sm text-slate-400">Total: {totalCount}</div>
             )}
             {loading && (
               <div className="flex items-center gap-2 text-sm text-slate-300">
