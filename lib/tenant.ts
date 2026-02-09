@@ -48,11 +48,7 @@ export const pathAllowedForHost = (pathname: string, rule: HostRule | null): boo
 export const resolveOwnerId = (opts: { host?: string | null; userOwnerId?: string | null }) => {
   const rule = findHostRule(opts.host ?? null)
   const defaultOwner = optionalEnv('DEFAULT_OWNER_ID')
-  const owner = opts.userOwnerId || rule?.ownerId || defaultOwner
-
-  if (!owner) {
-    throw new Error('owner_id não resolvido: configure HOST_ALLOWLIST.ownerId ou DEFAULT_OWNER_ID.')
-  }
-
+  // Fallback “public” para ambientes sem owner configurado (modo demo).
+  const owner = opts.userOwnerId || rule?.ownerId || defaultOwner || 'public'
   return owner
 }

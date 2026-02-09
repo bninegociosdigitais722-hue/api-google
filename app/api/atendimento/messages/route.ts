@@ -23,17 +23,9 @@ export async function GET(req: NextRequest) {
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
-  if (!user) {
-    logWarn('atendimento/messages no session', {
-      tag: 'api/atendimento/messages',
-      requestId,
-      host,
-    })
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-  }
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
-  const db = supabaseServer
+  const db = user ? supabaseServer : supabaseAdmin
 
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) {

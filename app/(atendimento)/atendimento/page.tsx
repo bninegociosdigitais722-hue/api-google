@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import AtendimentoClient, { Conversa, Message } from './AtendimentoClient'
 import { resolveOwnerId } from '../../../lib/tenant'
 import { createSupabaseServerClient } from '../../../lib/supabase/server'
+import supabaseAdmin from '../../../lib/supabase/admin'
 
 export const metadata = {
   title: 'Atendimento | Radar Local',
@@ -16,24 +16,23 @@ export default async function AtendimentoPage() {
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
-  if (!user) {
-    redirect('/login')
-  }
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+
+  const db = user ? supabaseServer : supabaseAdmin
 
   let conversas: Conversa[] = []
   let messagesByPhone: Record<string, Message[]> = {}
 
   try {
     const [{ data: contacts }, { data: msgs }] = await Promise.all([
-      supabaseServer
+      db
         .from('contacts')
         .select('id, phone, name, is_whatsapp, last_message_at')
         .eq('owner_id', ownerId)
         .order('last_message_at', { ascending: false })
         .limit(200),
-      supabaseServer
+      db
         .from('messages')
         .select('contact_id, body, direction, created_at')
         .eq('owner_id', ownerId)
@@ -65,7 +64,7 @@ export default async function AtendimentoPage() {
     const firstPhone = conversas[0]?.phone
     if (firstPhone) {
       const contactId = conversas[0].id
-      const { data: msgsAsc } = await supabaseServer
+      const { data: msgsAsc } = await db
         .from('messages')
         .select('id, contact_id, body, direction, status, created_at')
         .eq('contact_id', contactId)
