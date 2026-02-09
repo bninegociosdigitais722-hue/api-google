@@ -1,2 +1,1 @@
-export { GET, POST, runtime } from '../../webhooks/zapi/route'
-
+export { GET, POST } from '../../webhooks/zapi/route'
