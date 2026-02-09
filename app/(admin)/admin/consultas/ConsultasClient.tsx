@@ -13,6 +13,7 @@ type Resultado = {
   mapsUrl: string
   fotoUrl: string | null
   temWhatsapp?: boolean
+  lastOutboundTemplate?: string | null
 }
 
 type ApiResponse = {
@@ -26,9 +27,15 @@ type Props = {
   initialResults?: Resultado[]
   total?: number | null
   error?: string | null
+  sentMap?: Record<string, { template: string | null; lastOutboundAt: string | null }>
 }
 
-export default function ConsultasClient({ initialResults = [], total = null, error: initialError = null }: Props) {
+export default function ConsultasClient({
+  initialResults = [],
+  total = null,
+  error: initialError = null,
+  sentMap = {},
+}: Props) {
   const [tipo, setTipo] = useState('supermercado')
   const [localizacao, setLocalizacao] = useState('')
   const [somenteWhatsapp, setSomenteWhatsapp] = useState(false)
@@ -38,8 +45,24 @@ export default function ConsultasClient({ initialResults = [], total = null, err
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(initialError)
   const [totalCount, setTotalCount] = useState<number | null>(total)
+  const [sendingPhone, setSendingPhone] = useState<string | null>(null)
 
   const countRestantes = useMemo(() => resultados.length - visiveis.length, [resultados, visiveis])
+
+  const normalizePhone = (phone?: string | null) => {
+    if (!phone) return null
+    const digits = phone.replace(/\D/g, '')
+    if (!digits) return null
+    if (digits.length === 10 || digits.length === 11) return `55${digits}`
+    if (digits.startsWith('55')) return digits
+    return digits
+  }
+
+  const isSent = (phone?: string | null) => {
+    const norm = normalizePhone(phone)
+    if (!norm) return false
+    return Boolean(sentMap[norm] || visiveis.find((r) => normalizePhone(r.telefone) === norm)?.lastOutboundTemplate)
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -67,9 +90,13 @@ export default function ConsultasClient({ initialResults = [], total = null, err
         throw new Error(data.message || 'Não foi possível completar a busca.')
       }
 
-      setResultados(data.resultados)
-      setVisiveis(data.resultados.slice(0, 18))
-      setTotalCount(data.resultados.length)
+      const enriched = data.resultados.map((r) => ({
+        ...r,
+        lastOutboundTemplate: isSent(r.telefone) ? 'supercotacao_demo' : null,
+      }))
+      setResultados(enriched)
+      setVisiveis(enriched.slice(0, 18))
+      setTotalCount(enriched.length)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro inesperado ao buscar.'
       setErro(message)
@@ -240,11 +267,16 @@ export default function ConsultasClient({ initialResults = [], total = null, err
                 {visiveis.map((item) => (
                   <article
                     key={item.id}
-                    className="glass-panel group relative flex h-full flex-col rounded-3xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
+                className="glass-panel group relative flex h-full flex-col rounded-3xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
+              >
+                {isSent(item.telefone) && (
+                  <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold text-emerald-100 ring-1 ring-emerald-500/40">
+                    ENVIADO
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
                         const newSet = new Set(removidos)
                         newSet.add(item.id)
                         setRemovidos(newSet)
@@ -272,11 +304,11 @@ export default function ConsultasClient({ initialResults = [], total = null, err
                         </div>
                       )}
                     </div>
-                    <div className="mt-3 flex h-full flex-col justify-between gap-2">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">
+                <div className="mt-3 flex h-full flex-col justify-between gap-2">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">
                               {item.nome}
                             </h3>
                             <p className="text-xs text-slate-300 leading-snug line-clamp-2">
@@ -310,6 +342,53 @@ export default function ConsultasClient({ initialResults = [], total = null, err
                         >
                           Ver no Maps →
                         </a>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={!item.telefone || isSent(item.telefone) || sendingPhone === item.telefone}
+                          onClick={async () => {
+                            if (!item.telefone) return
+                            setSendingPhone(item.telefone)
+                            try {
+                              const resp = await fetch('/api/admin/atendimento/send', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  phones: [item.telefone],
+                                  template: 'supercotacao_demo',
+                                  message:
+                                    'Oi! Vi seu estabelecimento e queria te convidar para testar o supercotacao.com.br (7 dias grátis). Posso enviar mais detalhes?',
+                                }),
+                              })
+                              const data = await resp.json()
+                              if (!resp.ok) {
+                                throw new Error(data.message || 'Falha ao enviar')
+                              }
+                              setResultados((prev) =>
+                                prev.map((r) =>
+                                  r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                                )
+                              )
+                              setVisiveis((prev) =>
+                                prev.map((r) =>
+                                  r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                                )
+                              )
+                            } catch (err) {
+                              setErro((err as Error)?.message || 'Erro ao disparar')
+                            } finally {
+                              setSendingPhone(null)
+                            }
+                          }}
+                          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                            isSent(item.telefone)
+                              ? 'bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-500/30'
+                              : 'bg-white/10 text-white ring-1 ring-white/10 hover:bg-white/20'
+                          }`}
+                        >
+                          {isSent(item.telefone) ? 'Enviado' : sendingPhone === item.telefone ? 'Enviando...' : 'Disparar convite'}
+                        </button>
                       </div>
                     </div>
                   </article>

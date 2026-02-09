@@ -22,15 +22,29 @@ export default async function ConsultasPage() {
   const [{ data: results, error }, { count: total, error: countError }] = await Promise.all([
     db
       .from('contacts')
-      .select('id, name, phone, is_whatsapp, last_message_at', { count: 'exact' })
+      .select('id, name, phone, is_whatsapp, last_message_at, last_outbound_template, last_outbound_at', {
+        count: 'exact',
+      })
       .eq('owner_id', ownerId)
       .order('last_message_at', { ascending: false })
-      .limit(50),
+      .limit(200),
     db.from('contacts').select('id', { count: 'exact', head: true }).eq('owner_id', ownerId),
   ])
 
   const contatos = results ?? []
   const hasError = error || countError
+
+  const sentMap = Object.fromEntries(
+    contatos
+      .filter((c) => c.phone)
+      .map((c) => [
+        String(c.phone),
+        {
+          template: (c as any).last_outbound_template as string | null,
+          lastOutboundAt: (c as any).last_outbound_at as string | null,
+        },
+      ])
+  )
 
   return (
     <ConsultasClient
@@ -43,7 +57,9 @@ export default async function ConsultasPage() {
         mapsUrl: '#',
         fotoUrl: null,
         temWhatsapp: c.is_whatsapp ?? undefined,
+        lastOutboundTemplate: (c as any).last_outbound_template ?? null,
       }))}
+      sentMap={sentMap}
       total={typeof total === 'number' ? total : null}
       error={hasError?.message}
     />

@@ -9,9 +9,10 @@ type BodyPayload = {
   phones?: string[]
   message?: string
   name?: string | null
+  template?: string | null
 }
 
-type SendResult = { phone: string; status: 'sent' | 'failed'; error?: string }
+type SendResult = { phone: string; status: 'sent' | 'failed' | 'skipped'; error?: string }
 
 export const runtime = 'nodejs'
 export const revalidate = 0
@@ -26,9 +27,13 @@ export async function POST(req: NextRequest) {
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
   const db = user ? supabaseServer : supabaseAdmin
 
-  const { phones = [], message, name }: BodyPayload = await req.json().catch(() => ({}))
+  const { phones = [], message, name, template }: BodyPayload = await req.json().catch(() => ({}))
+  const templateId = template?.trim() || 'supercotacao_demo'
+  const trimmedMessage =
+    message?.trim() ||
+    'Oi! Vi seu estabelecimento e queria te convidar para testar o supercotacao.com.br (7 dias grátis). Posso enviar mais detalhes?'
 
-  if (!Array.isArray(phones) || phones.length === 0 || !message?.trim()) {
+  if (!Array.isArray(phones) || phones.length === 0 || !trimmedMessage) {
     return NextResponse.json(
       { message: 'Envie um array de telefones e uma mensagem.' },
       { status: 400 }
@@ -59,34 +64,44 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: 'owner_id,phone' }
       )
-      .select('id')
+      .select('id, last_outbound_template')
       .single()
 
     if (error || !data) {
       throw new Error(error?.message || 'Erro ao salvar contato')
     }
-    return data.id as number
+    return { id: data.id as number, lastTemplate: (data as any).last_outbound_template as string | null }
   }
 
   const results: SendResult[] = []
 
   for (const phone of normalizedPhones) {
     try {
-      const contactId = await ensureContact(phone)
-      const resp = await sendText(phone, message.trim())
+      const { id: contactId, lastTemplate } = await ensureContact(phone)
+
+      if (lastTemplate === templateId) {
+        results.push({ phone, status: 'skipped' })
+        continue
+      }
+
+      const resp = await sendText(phone, trimmedMessage)
 
       await db.from('messages').insert({
         owner_id: ownerId,
         contact_id: contactId,
         direction: 'out',
-        body: message.trim(),
+        body: trimmedMessage,
         status: 'sent',
         provider_message_id: resp.messageId ?? null,
       })
 
       await db
         .from('contacts')
-        .update({ last_message_at: new Date().toISOString() })
+        .update({
+          last_message_at: new Date().toISOString(),
+          last_outbound_template: templateId,
+          last_outbound_at: new Date().toISOString(),
+        })
         .eq('id', contactId)
         .eq('owner_id', ownerId)
 
