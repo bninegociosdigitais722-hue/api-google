@@ -56,16 +56,23 @@ const verifySignature = (req: NextRequest) => {
     throw new Error('ZAPI_WEBHOOK_TOKEN ausente - fail hard.')
   }
 
-  const provided =
-    req.headers.get('x-zapi-signature') ||
-    req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
-    ''
+  const candidates = [
+    req.headers.get('x-zapi-signature'),
+    req.headers.get('x-client-token'),
+    req.headers.get('client-token'),
+    req.headers.get('authorization')?.replace(/^Bearer\s+/i, ''),
+  ].filter(Boolean) as string[]
+
+  if (!candidates.length) return false
 
   const expectedBuf = Buffer.from(expected)
-  const providedBuf = Buffer.from(provided)
-
-  if (expectedBuf.length !== providedBuf.length) return false
-  return timingSafeEqual(expectedBuf, providedBuf)
+  for (const cand of candidates) {
+    const providedBuf = Buffer.from(cand)
+    if (expectedBuf.length === providedBuf.length && timingSafeEqual(expectedBuf, providedBuf)) {
+      return true
+    }
+  }
+  return false
 }
 
 export const runtime = 'nodejs'

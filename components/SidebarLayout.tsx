@@ -16,6 +16,7 @@ type SidebarLayoutProps = {
 const defaultNav: NavItem[] = [
   { href: '/admin/dashboard', label: 'Dashboard' },
   { href: '/admin/consultas', label: 'Consultas' },
+  { href: '/atendimento', label: 'Atendimento' },
   { href: '/admin/configuracoes', label: 'Configurações', badge: 'em breve' },
 ]
 
