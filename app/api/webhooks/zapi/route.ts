@@ -241,7 +241,10 @@ export async function POST(req: NextRequest) {
 
   const body = extractBody(payload)
   const cleanBody = body.trim()
-  const contactName = payload.pushName || null
+  const contactName =
+    payload.pushName ||
+    (typeof payload.sender === 'object' ? payload.sender?.name || payload.sender?.pushName : null) ||
+    null
 
   if (!cleanBody) {
     logWarn('zapi webhook ignored empty body', {
@@ -280,7 +283,7 @@ export async function POST(req: NextRequest) {
         {
           owner_id: ownerId,
           phone,
-          name: contactName,
+          name: contactName ?? undefined,
           is_whatsapp: true,
           last_message_at: new Date().toISOString(),
         },
