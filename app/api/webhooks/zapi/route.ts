@@ -43,11 +43,24 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
 }
 
 const extractBody = (payload: ZapiIncoming): string => {
+  const pickText = (value: any): string | null => {
+    if (!value) return null
+    if (typeof value === 'string') return value
+    if (typeof value === 'object') {
+      const candidates = [value.message, value.text, value.body, value.caption]
+      for (const cand of candidates) {
+        if (typeof cand === 'string' && cand.trim()) return cand
+      }
+    }
+    return null
+  }
+
   const candidates = [
-    payload.message?.body,
-    payload.message?.text,
-    payload.body,
-    payload.text,
+    pickText(payload.message?.body),
+    pickText(payload.message?.text),
+    pickText(payload.body),
+    pickText(payload.text),
+    pickText(payload.message),
   ].filter((v): v is string => typeof v === 'string' && v.length > 0)
 
   for (const cand of candidates) {
@@ -57,19 +70,19 @@ const extractBody = (payload: ZapiIncoming): string => {
     // 1) Tenta JSON.parse direto
     try {
       const parsed = JSON.parse(trimmed)
-      if (parsed && typeof parsed === 'object' && 'message' in parsed) {
-        const m = (parsed as any).message
+      if (parsed && typeof parsed === 'object') {
+        const m = (parsed as any).message || (parsed as any).text
         if (typeof m === 'string' && m.trim()) return m
       }
     } catch {
       // ignora
     }
 
-    // 2) Tenta regex "message":"..."
-    const match = trimmed.match(/"message"\s*:\s*"([^"]+)"/)
-    if (match?.[1]) return match[1].replace(/\\n/g, '\n')
+    // 2) Tenta regex "message":"..." ou "text":"..."
+    const match = trimmed.match(/"(message|text)"\s*:\s*"([^"]+)"/)
+    if (match?.[2]) return match[2].replace(/\\n/g, '\n')
 
-    // 3) Se já veio texto plano
+    // 3) Texto plano
     return trimmed
   }
 
@@ -128,7 +141,7 @@ export async function POST(req: NextRequest) {
   const payload = (await req.json().catch(() => ({}))) as ZapiIncoming
 
   // Ignora callbacks de presença/typing que não carregam texto
-  if (payload.type && payload.type !== 'message') {
+  if (payload.type && !payload.type.toLowerCase().includes('message')) {
     logInfo('zapi webhook ignored non-message event', {
       tag: 'api/webhooks/zapi',
       requestId,

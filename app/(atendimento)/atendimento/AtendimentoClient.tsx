@@ -88,7 +88,8 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     try {
       const resp = await fetch(`/api/atendimento/messages?phone=${encodeURIComponent(phone)}`)
       const data = await resp.json()
-      setMessages(data.messages ?? [])
+      const cleaned = (data.messages ?? []).filter((m: Message) => m.body && m.body.trim())
+      setMessages(cleaned)
     } finally {
       setLoadingMessages(false)
     }
@@ -232,6 +233,34 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                       </span>
                     )}
                   </div>
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      className="text-[11px] text-red-300 hover:text-red-200"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        const ok = window.confirm('Excluir conversa e contato?')
+                        if (!ok) return
+                        try {
+                          const resp = await fetch(
+                            `/api/atendimento/conversas?phone=${encodeURIComponent(c.phone)}`,
+                            { method: 'DELETE' }
+                          )
+                          const data = await resp.json()
+                          if (!resp.ok) throw new Error(data.message || 'Erro ao excluir conversa')
+                          setConversas((prev) => prev.filter((item) => item.phone !== c.phone))
+                          if (activePhone === c.phone) {
+                            setActivePhone(null)
+                            setMessages([])
+                          }
+                        } catch (err) {
+                          setToast((err as Error)?.message || 'Falha ao excluir conversa')
+                        }
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 </button>
               ))}
             </div>
@@ -249,6 +278,28 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     </h2>
                     <p className="text-sm text-slate-400">{formatPhone(activeConversa.phone)}</p>
                   </div>
+                  <button
+                    onClick={async () => {
+                      if (!activeConversa?.phone) return
+                      const ok = window.confirm('Tem certeza que deseja limpar a conversa?')
+                      if (!ok) return
+                      try {
+                        const resp = await fetch(
+                          `/api/atendimento/messages?phone=${encodeURIComponent(activeConversa.phone)}`,
+                          { method: 'DELETE' }
+                        )
+                        const data = await resp.json()
+                        if (!resp.ok) throw new Error(data.message || 'Erro ao limpar conversa')
+                        setMessages([])
+                        await loadConversas()
+                      } catch (err) {
+                        setToast((err as Error)?.message || 'Falha ao limpar conversa')
+                      }
+                    }}
+                    className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-100 hover:bg-white/20"
+                  >
+                    Limpar conversa
+                  </button>
                 </header>
 
                 <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-white/5 p-4">
