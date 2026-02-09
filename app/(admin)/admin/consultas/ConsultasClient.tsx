@@ -344,54 +344,98 @@ export default function ConsultasClient({
                         </a>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={!item.telefone || isSent(item.telefone) || sendingPhone === item.telefone}
-                          onClick={async () => {
-                            if (!item.telefone) return
-                            setSendingPhone(item.telefone)
-                          try {
-                            const resp = await fetch('/api/admin/atendimento/send', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                phones: [item.telefone],
-                                name: item.nome,
-                                template: 'supercotacao_demo',
-                                  message: `Oi! Tudo bem? 😊 Sou o Ítalo.
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={!item.telefone || isSent(item.telefone) || sendingPhone === item.telefone}
+                            onClick={async () => {
+                              if (!item.telefone) return
+                              setSendingPhone(item.telefone)
+                              try {
+                                const resp = await fetch('/api/admin/atendimento/send', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    phones: [item.telefone],
+                                    name: item.nome,
+                                    template: 'supercotacao_demo',
+                                    message: `Oi! Tudo bem? 😊 Sou o Ítalo.
 Vi seu estabelecimento no Google Maps e queria te convidar para testar o *Super Cotação* — sistema que ajuda empresas a economizar nas compras comparando preços de fornecedores pelo WhatsApp.
 Acesse: www.supercotacao.com.br
 São 7 dias grátis, sem compromisso. Posso te explicar rapidinho como funciona?`,
-                                }),
-                              })
-                              const data = await resp.json()
-                              if (!resp.ok) {
-                                throw new Error(data.message || 'Falha ao enviar')
+                                  }),
+                                })
+                                const data = await resp.json()
+                                if (!resp.ok) {
+                                  throw new Error(data.message || 'Falha ao enviar')
+                                }
+                                setResultados((prev) =>
+                                  prev.map((r) =>
+                                    r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                                  )
+                                )
+                                setVisiveis((prev) =>
+                                  prev.map((r) =>
+                                    r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                                  )
+                                )
+                              } catch (err) {
+                                setErro((err as Error)?.message || 'Erro ao disparar')
+                              } finally {
+                                setSendingPhone(null)
                               }
-                              setResultados((prev) =>
-                                prev.map((r) =>
-                                  r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
-                                )
-                              )
-                              setVisiveis((prev) =>
-                                prev.map((r) =>
-                                  r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
-                                )
-                              )
-                            } catch (err) {
-                              setErro((err as Error)?.message || 'Erro ao disparar')
-                            } finally {
-                              setSendingPhone(null)
-                            }
-                          }}
-                          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                            isSent(item.telefone)
-                              ? 'bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-500/30'
-                              : 'bg-white/10 text-white ring-1 ring-white/10 hover:bg-white/20'
-                          }`}
-                        >
-                          {isSent(item.telefone) ? 'Enviado' : sendingPhone === item.telefone ? 'Enviando...' : 'Disparar convite'}
-                        </button>
+                            }}
+                            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                              isSent(item.telefone)
+                                ? 'bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-500/30'
+                                : 'bg-white/10 text-white ring-1 ring-white/10 hover:bg-white/20'
+                            }`}
+                          >
+                            {isSent(item.telefone) ? 'Enviado' : sendingPhone === item.telefone ? 'Enviando...' : 'Disparar convite'}
+                          </button>
+
+                          {isSent(item.telefone) && (
+                            <button
+                              type="button"
+                              disabled={sendingPhone === item.telefone}
+                              onClick={async () => {
+                                if (!item.telefone) return
+                                setSendingPhone(item.telefone)
+                                try {
+                                  const resp = await fetch('/api/admin/atendimento/send', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      phones: [item.telefone],
+                                      name: item.nome,
+                                      template: 'supercotacao_demo',
+                                      force: true,
+                                    }),
+                                  })
+                                  const data = await resp.json()
+                                  if (!resp.ok) throw new Error(data.message || 'Falha ao reenviar')
+                                  setResultados((prev) =>
+                                    prev.map((r) =>
+                                      r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                                    )
+                                  )
+                                  setVisiveis((prev) =>
+                                    prev.map((r) =>
+                                      r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                                    )
+                                  )
+                                } catch (err) {
+                                  setErro((err as Error)?.message || 'Erro ao reenviar')
+                                } finally {
+                                  setSendingPhone(null)
+                                }
+                              }}
+                              className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15 hover:bg-white/20"
+                            >
+                              {sendingPhone === item.telefone ? 'Reenviando...' : 'Reenviar'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </article>

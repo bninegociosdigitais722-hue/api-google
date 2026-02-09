@@ -10,6 +10,7 @@ type BodyPayload = {
   message?: string
   name?: string | null
   template?: string | null
+  force?: boolean
 }
 
 type SendResult = { phone: string; status: 'sent' | 'failed' | 'skipped'; error?: string }
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
   const db = user ? supabaseServer : supabaseAdmin
 
-  const { phones = [], message, name, template }: BodyPayload = await req.json().catch(() => ({}))
+  const { phones = [], message, name, template, force }: BodyPayload = await req.json().catch(() => ({}))
   const templateId = template?.trim() || 'supercotacao_demo'
   const defaultMessage = `Oi! Tudo bem? 😊 Sou o Ítalo.
 Vi seu estabelecimento no Google Maps e queria te convidar para testar o *Super Cotação* — sistema que ajuda empresas a economizar nas compras comparando preços de fornecedores pelo WhatsApp.
@@ -81,7 +82,7 @@ São 7 dias grátis, sem compromisso. Posso te explicar rapidinho como funciona?
     try {
       const { id: contactId, lastTemplate } = await ensureContact(phone)
 
-      if (lastTemplate === templateId) {
+      if (!force && lastTemplate === templateId) {
         results.push({ phone, status: 'skipped' })
         continue
       }
