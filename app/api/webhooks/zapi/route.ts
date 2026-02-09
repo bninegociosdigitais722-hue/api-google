@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
   const body = extractBody(payload)
   const contactName = payload.pushName || null
 
-  const withRetry = async <T>(fn: () => Promise<T>, attempts = 3, delayMs = 200) => {
+  const withRetry = async <T>(fn: () => Promise<T>, attempts = 3, delayMs = 200): Promise<T> => {
     let lastError: any
     for (let i = 0; i < attempts; i++) {
       try {
@@ -116,8 +116,8 @@ export async function POST(req: NextRequest) {
     throw lastError
   }
 
-  const { data: contact, error: contactError } = await withRetry(() =>
-    supabaseAdmin
+  const { data: contact, error: contactError } = await withRetry(async () => {
+    const resp = await supabaseAdmin
       .from('contacts')
       .upsert(
         {
@@ -131,7 +131,8 @@ export async function POST(req: NextRequest) {
       )
       .select('id')
       .single()
-  )
+    return resp
+  })
 
   if (contactError || !contact) {
     logError('zapi webhook contact_error', {
@@ -148,8 +149,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { error: insertError } = await withRetry(() =>
-    supabaseAdmin.from('messages').insert({
+  const { error: insertError } = await withRetry(async () => {
+    const resp = await supabaseAdmin.from('messages').insert({
       owner_id: ownerId,
       contact_id: contact.id,
       direction: 'in',
@@ -157,7 +158,8 @@ export async function POST(req: NextRequest) {
       status: 'received',
       provider_message_id: payload.message?.id ?? null,
     })
-  )
+    return resp
+  })
 
   if (insertError) {
     logError('zapi webhook insert_error', {
