@@ -131,7 +131,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       const resp = await fetch('/api/atendimento/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phones: [activePhone], message: composer }),
+        body: JSON.stringify({
+          phones: [activePhone],
+          message: composer,
+          force: true,
+          template: 'reply',
+        }),
       })
       const data = await resp.json()
       if (!resp.ok) throw new Error(data.message || 'Erro ao enviar')

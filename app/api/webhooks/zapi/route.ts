@@ -41,24 +41,37 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
 }
 
 const extractBody = (payload: ZapiIncoming): string => {
-  const raw =
-    payload.message?.body ||
-    payload.message?.text ||
-    payload.body ||
-    payload.text ||
-    '[mensagem sem texto]'
+  const candidates = [
+    payload.message?.body,
+    payload.message?.text,
+    payload.body,
+    payload.text,
+  ].filter((v): v is string => typeof v === 'string' && v.length > 0)
 
-  try {
-    const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object' && 'message' in parsed) {
-      const m = (parsed as any).message
-      if (typeof m === 'string' && m.trim()) return m
+  for (const cand of candidates) {
+    const trimmed = cand.trim()
+    if (!trimmed) continue
+
+    // 1) Tenta JSON.parse direto
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (parsed && typeof parsed === 'object' && 'message' in parsed) {
+        const m = (parsed as any).message
+        if (typeof m === 'string' && m.trim()) return m
+      }
+    } catch {
+      // ignora
     }
-  } catch {
-    // não é JSON, segue com raw
+
+    // 2) Tenta regex "message":"..."
+    const match = trimmed.match(/"message"\s*:\s*"([^"]+)"/)
+    if (match?.[1]) return match[1].replace(/\\n/g, '\n')
+
+    // 3) Se já veio texto plano
+    return trimmed
   }
 
-  return raw
+  return ''
 }
 
 const verifySignature = (req: NextRequest) => {
