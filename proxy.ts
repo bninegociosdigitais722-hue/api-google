@@ -5,7 +5,7 @@ import { rateLimit } from './lib/rate-limit'
 
 export const runtime = 'nodejs'
 
-export async function middleware(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const rule = findHostRule(host)
   const pathname = req.nextUrl.pathname
@@ -61,4 +61,3 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt).*)'],
 }
-
