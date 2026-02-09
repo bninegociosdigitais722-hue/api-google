@@ -25,19 +25,19 @@ export async function GET(req: NextRequest) {
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
-  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
-
-  // Usa supabase com RLS se autenticado; fallback para admin se não há sessão (com log).
-  const db = user ? supabaseServer : supabaseAdmin
   if (!user) {
-    logWarn('atendimento/conversas using service role (no session)', {
+    logWarn('atendimento/conversas no session', {
       tag: 'api/atendimento/conversas',
       requestId,
       host,
-      ownerId,
     })
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
+
+  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
+  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+
+  const db = supabaseServer
 
   const { data: contacts, error } = await db
     .from('contacts')

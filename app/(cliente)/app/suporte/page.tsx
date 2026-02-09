@@ -21,16 +21,23 @@ export default async function SuporteClientePage() {
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
+  if (!user) {
+    logWarn('cliente/suporte no session', { tag: 'app/suporte', host })
+    return (
+      <SidebarLayout
+        title="Suporte"
+        description="Você precisa estar autenticado para acompanhar as interações."
+        navItems={navItems}
+      >
+        <div className="rounded-3xl bg-white/5 p-6 text-slate-200 shadow-lg ring-1 ring-white/5">
+          Faça login e tente novamente.
+        </div>
+      </SidebarLayout>
+    )
+  }
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
-  const db = user ? supabaseServer : supabaseAdmin
-  if (!user) {
-    logWarn('cliente/suporte using service role (no session)', {
-      tag: 'app/suporte',
-      host,
-      ownerId,
-    })
-  }
+  const db = supabaseServer
 
   const { data: messages } = await db
     .from('messages')

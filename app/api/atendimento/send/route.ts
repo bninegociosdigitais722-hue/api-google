@@ -21,17 +21,17 @@ export async function POST(req: NextRequest) {
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
-  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
-  const db = user ? supabaseServer : supabaseAdmin
   if (!user) {
-    logWarn('atendimento/send using service role (no session)', {
+    logWarn('atendimento/send no session', {
       tag: 'api/atendimento/send',
       requestId,
       host,
-      ownerId,
     })
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
+  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
+  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+  const db = supabaseServer
 
   const { phones = [], message, name }: BodyPayload = await req.json().catch(() => ({}))
 

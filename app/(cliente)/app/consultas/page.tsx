@@ -21,16 +21,13 @@ export default async function ConsultasClientePage() {
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
+  if (!user) {
+    logWarn('cliente/consultas no session', { tag: 'app/consultas', host })
+    return null
+  }
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
-  const db = user ? supabaseServer : supabaseAdmin
-  if (!user) {
-    logWarn('cliente/consultas using service role (no session)', {
-      tag: 'app/consultas',
-      host,
-      ownerId,
-    })
-  }
+  const db = supabaseServer
 
   const [contactsRes, messagesRes] = await Promise.all([
     db
@@ -50,6 +47,20 @@ export default async function ConsultasClientePage() {
   const contacts = contactsRes.data ?? []
   const messages = messagesRes.data ?? []
   const contactById = new Map(contacts.map((c) => [c.id, c]))
+
+  if (!user) {
+    return (
+      <SidebarLayout
+        title="Consultas recentes"
+        description="Você precisa estar autenticado para ver os dados do seu tenant."
+        navItems={navItems}
+      >
+        <div className="rounded-3xl bg-white/5 p-6 text-slate-200 shadow-lg ring-1 ring-white/5">
+          Faça login e tente novamente.
+        </div>
+      </SidebarLayout>
+    )
+  }
 
   return (
     <SidebarLayout
