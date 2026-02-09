@@ -30,10 +30,13 @@ export async function POST(req: NextRequest) {
 
   const { phones = [], message, name, template, force }: BodyPayload = await req.json().catch(() => ({}))
   const templateId = template?.trim() || 'supercotacao_demo'
-  const defaultMessage = `Oi! Tudo bem? 😊 Sou o Ítalo.
-Vi seu estabelecimento no Google Maps e queria te convidar para testar o *Super Cotação* — sistema que ajuda empresas a economizar nas compras comparando preços de fornecedores pelo WhatsApp.
-Acesse: www.supercotacao.com.br
-São 7 dias grátis, sem compromisso. Posso te explicar rapidinho como funciona?`
+  const defaultMessage = `Olá, tudo bem? 😊
+
+Me chamo Ítalo e sou do Super Cotação.
+
+Vi seu estabelecimento no Google Maps e acredito que o Super Cotação pode te ajudar a economizar nas compras, comparando preços de fornecedores pelo WhatsApp.
+
+Posso te explicar rapidinho como funciona?`
   const trimmedMessage = message?.trim() || defaultMessage
 
   if (!Array.isArray(phones) || phones.length === 0 || !trimmedMessage) {
