@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { logError, logInfo, resolveRequestId } from '../../../lib/logger'
 
 export const runtime = 'nodejs'
 
 export async function GET(req: NextRequest) {
   const ref = req.nextUrl.searchParams.get('ref')
   const maxwidth = req.nextUrl.searchParams.get('maxwidth') ?? '400'
+  const requestId = resolveRequestId(req.headers)
 
   if (!ref) {
     return NextResponse.json({ message: 'Parâmetro \"ref\" é obrigatório.' }, { status: 400 })
@@ -24,6 +26,13 @@ export async function GET(req: NextRequest) {
     const gRes = await fetch(photoUrl.toString())
 
     if (!gRes.ok) {
+      logInfo('google_photo_error', {
+        tag: 'api/foto',
+        requestId,
+        status: gRes.status,
+        statusText: gRes.statusText,
+        ref,
+      })
       return NextResponse.json({ message: 'Erro ao buscar foto no Google.' }, { status: 502 })
     }
 
@@ -38,7 +47,11 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[api/foto] erro', error)
+    logError('api/foto error', {
+      tag: 'api/foto',
+      requestId,
+      error: (error as Error)?.message,
+    })
     return NextResponse.json({ message: 'Erro interno ao obter foto.' }, { status: 500 })
   }
 }

@@ -3,6 +3,7 @@ import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { normalizePhoneToBR } from '../../../../lib/zapi'
 import { resolveOwnerId } from '../../../../lib/tenant'
+import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 type Message = {
   id: number
@@ -17,12 +18,21 @@ export const runtime = 'nodejs'
 
 export async function GET(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const requestId = resolveRequestId(req.headers)
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
   const db = user ? supabaseServer : supabaseAdmin
+  if (!user) {
+    logWarn('atendimento/messages using service role (no session)', {
+      tag: 'api/atendimento/messages',
+      requestId,
+      host,
+      ownerId,
+    })
+  }
 
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) {
@@ -42,6 +52,14 @@ export async function GET(req: NextRequest) {
     .single()
 
   if (contactError || !contact) {
+    logWarn('atendimento/messages contact_not_found', {
+      tag: 'api/atendimento/messages',
+      requestId,
+      host,
+      ownerId,
+      phone: normalized,
+      error: contactError?.message,
+    })
     return NextResponse.json({ message: 'Contato não encontrado.' }, { status: 404 })
   }
 
@@ -53,8 +71,25 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: true })
 
   if (error) {
+    logError('atendimento/messages list_error', {
+      tag: 'api/atendimento/messages',
+      requestId,
+      host,
+      ownerId,
+      contactId: contact.id,
+      error: error.message,
+    })
     return NextResponse.json({ message: error.message }, { status: 500 })
   }
+
+  logInfo('atendimento/messages ok', {
+    tag: 'api/atendimento/messages',
+    requestId,
+    host,
+    ownerId,
+    contactId: contact.id,
+    count: messages?.length ?? 0,
+  })
 
   return NextResponse.json({ messages: messages ?? [], contact }, { status: 200 })
 }

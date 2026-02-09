@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
 import { normalizePhoneToBR } from '../../../../lib/zapi'
 import { resolveOwnerId } from '../../../../lib/tenant'
+import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 type ZapiIncoming = {
   phone?: string
@@ -70,7 +71,15 @@ const verifySignature = (req: NextRequest) => {
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
+  const requestId = resolveRequestId(req.headers)
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+
   if (!verifySignature(req)) {
+    logWarn('zapi webhook invalid signature', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+    })
     return NextResponse.json({ message: 'Assinatura inválida.' }, { status: 401 })
   }
 
@@ -78,48 +87,88 @@ export async function POST(req: NextRequest) {
   const phone = extractPhone(payload)
 
   if (!phone) {
+    logWarn('zapi webhook phone_missing', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      raw: payload,
+    })
     return NextResponse.json({ message: 'Telefone não identificado no payload.' }, { status: 400 })
   }
 
-  const ownerId = resolveOwnerId({
-    host: req.headers.get('x-forwarded-host') || req.headers.get('host'),
-  })
+  const ownerId = resolveOwnerId({ host })
 
   const body = extractBody(payload)
   const contactName = payload.pushName || null
 
-  const { data: contact, error: contactError } = await supabaseAdmin
-    .from('contacts')
-    .upsert(
-      {
-        owner_id: ownerId,
-        phone,
-        name: contactName,
-        is_whatsapp: true,
-        last_message_at: new Date().toISOString(),
-      },
-      { onConflict: 'owner_id,phone' }
-    )
-    .select('id')
-    .single()
+  const withRetry = async <T>(fn: () => Promise<T>, attempts = 3, delayMs = 200) => {
+    let lastError: any
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn()
+      } catch (err) {
+        lastError = err
+        if (i < attempts - 1) {
+          await new Promise((r) => setTimeout(r, delayMs * (i + 1)))
+        }
+      }
+    }
+    throw lastError
+  }
+
+  const { data: contact, error: contactError } = await withRetry(() =>
+    supabaseAdmin
+      .from('contacts')
+      .upsert(
+        {
+          owner_id: ownerId,
+          phone,
+          name: contactName,
+          is_whatsapp: true,
+          last_message_at: new Date().toISOString(),
+        },
+        { onConflict: 'owner_id,phone' }
+      )
+      .select('id')
+      .single()
+  )
 
   if (contactError || !contact) {
+    logError('zapi webhook contact_error', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      ownerId,
+      phone,
+      error: contactError?.message,
+    })
     return NextResponse.json(
       { message: contactError?.message || 'Erro ao salvar contato.' },
       { status: 500 }
     )
   }
 
-  const { error: insertError } = await supabaseAdmin.from('messages').insert({
-    owner_id: ownerId,
-    contact_id: contact.id,
-    direction: 'in',
-    body,
-    status: 'received',
-    provider_message_id: payload.message?.id ?? null,
-  })
+  const { error: insertError } = await withRetry(() =>
+    supabaseAdmin.from('messages').insert({
+      owner_id: ownerId,
+      contact_id: contact.id,
+      direction: 'in',
+      body,
+      status: 'received',
+      provider_message_id: payload.message?.id ?? null,
+    })
+  )
 
   if (insertError) {
+    logError('zapi webhook insert_error', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      ownerId,
+      phone,
+      contactId: contact.id,
+      error: insertError.message,
+    })
     return NextResponse.json({ message: insertError.message }, { status: 500 })
   }
 
@@ -128,6 +177,15 @@ export async function POST(req: NextRequest) {
     .update({ last_message_at: new Date().toISOString() })
     .eq('id', contact.id)
     .eq('owner_id', ownerId)
+
+  logInfo('zapi webhook ok', {
+    tag: 'api/webhooks/zapi',
+    requestId,
+    host,
+    ownerId,
+    phone,
+    contactId: contact.id,
+  })
 
   return NextResponse.json({ ok: true }, { status: 200 })
 }

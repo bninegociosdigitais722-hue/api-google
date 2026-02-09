@@ -3,6 +3,7 @@ import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { normalizePhoneToBR, sendText } from '../../../../lib/zapi'
 import { resolveOwnerId } from '../../../../lib/tenant'
+import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 type BodyPayload = {
   phones?: string[]
@@ -16,12 +17,21 @@ export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const requestId = resolveRequestId(req.headers)
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
   const db = user ? supabaseServer : supabaseAdmin
+  if (!user) {
+    logWarn('atendimento/send using service role (no session)', {
+      tag: 'api/atendimento/send',
+      requestId,
+      host,
+      ownerId,
+    })
+  }
 
   const { phones = [], message, name }: BodyPayload = await req.json().catch(() => ({}))
 
@@ -89,6 +99,14 @@ export async function POST(req: NextRequest) {
 
       results.push({ phone, status: 'sent' })
     } catch (err) {
+      logError('atendimento/send failed', {
+        tag: 'api/atendimento/send',
+        requestId,
+        host,
+        ownerId,
+        phone,
+        error: (err as Error)?.message,
+      })
       results.push({
         phone,
         status: 'failed',
@@ -96,6 +114,15 @@ export async function POST(req: NextRequest) {
       })
     }
   }
+
+  logInfo('atendimento/send done', {
+    tag: 'api/atendimento/send',
+    requestId,
+    host,
+    ownerId,
+    success: results.filter((r) => r.status === 'sent').length,
+    failed: results.filter((r) => r.status === 'failed').length,
+  })
 
   return NextResponse.json({ results }, { status: 200 })
 }

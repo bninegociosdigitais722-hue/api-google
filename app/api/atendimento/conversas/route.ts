@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { resolveOwnerId } from '../../../../lib/tenant'
+import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 type Conversa = {
   id: number
@@ -20,6 +21,7 @@ export const runtime = 'nodejs'
 
 export async function GET(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const requestId = resolveRequestId(req.headers)
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
@@ -28,6 +30,14 @@ export async function GET(req: NextRequest) {
 
   // Usa supabase com RLS se autenticado; fallback para admin se não há sessão (com log).
   const db = user ? supabaseServer : supabaseAdmin
+  if (!user) {
+    logWarn('atendimento/conversas using service role (no session)', {
+      tag: 'api/atendimento/conversas',
+      requestId,
+      host,
+      ownerId,
+    })
+  }
 
   const { data: contacts, error } = await db
     .from('contacts')
@@ -37,6 +47,13 @@ export async function GET(req: NextRequest) {
     .limit(200)
 
   if (error) {
+    logError('atendimento/conversas contacts_error', {
+      tag: 'api/atendimento/conversas',
+      requestId,
+      host,
+      ownerId,
+      error: error.message,
+    })
     return NextResponse.json({ message: error.message }, { status: 500 })
   }
 
@@ -69,6 +86,14 @@ export async function GET(req: NextRequest) {
       ...c,
       last_message: messagesMap.get(c.id) ?? null,
     })) ?? []
+
+  logInfo('atendimento/conversas ok', {
+    tag: 'api/atendimento/conversas',
+    requestId,
+    host,
+    ownerId,
+    count: conversas.length,
+  })
 
   return NextResponse.json({ conversas }, { status: 200 })
 }

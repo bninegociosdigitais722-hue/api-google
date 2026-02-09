@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { logError, logInfo, resolveRequestId } from '../../../lib/logger'
 import { normalizePhoneToBR, phoneExistsBatch } from '../../../lib/zapi'
 
 type PlaceSummary = {
@@ -34,17 +35,9 @@ export async function GET(req: NextRequest) {
   const localizacao = searchParams.get('localizacao')
   const onlyWhatsapp = searchParams.get('onlyWhatsapp')
 
-  const requestId = Math.random().toString(16).slice(2, 10)
-  const log = (message: string, extra?: Record<string, any>) => {
-    console.log(
-      JSON.stringify({
-        tag: 'api/busca',
-        requestId,
-        message,
-        ...extra,
-      })
-    )
-  }
+  const requestId = resolveRequestId(req.headers)
+  const log = (message: string, extra?: Record<string, any>) =>
+    logInfo(message, { tag: 'api/busca', requestId, path: req.nextUrl.pathname, host: req.headers.get('host'), ...extra })
 
   if (!tipo || !localizacao) {
     return NextResponse.json(
@@ -273,7 +266,7 @@ export async function GET(req: NextRequest) {
       headers: { 'Cache-Control': 's-maxage=120, stale-while-revalidate=120' },
     })
   } catch (error) {
-    log('unexpected_error', { error: (error as Error)?.message })
+    logError('unexpected_error', { requestId, error: (error as Error)?.message })
     return NextResponse.json(
       { message: 'Erro ao consultar a Google Maps API. Tente novamente em instantes.' },
       { status: 500 }

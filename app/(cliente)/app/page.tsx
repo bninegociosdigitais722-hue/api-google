@@ -6,8 +6,8 @@ export const metadata = {
 
 const navItems = [
   { href: '/app', label: 'Home' },
-  { href: '/app/consultas', label: 'Consultas', badge: 'em breve' },
-  { href: '/app/suporte', label: 'Suporte', badge: 'em breve' },
+  { href: '/app/consultas', label: 'Consultas' },
+  { href: '/app/suporte', label: 'Suporte' },
 ]
 
 export default function AppHomePage() {
@@ -25,13 +25,15 @@ export default function AppHomePage() {
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Consultas</p>
-            <p className="mt-1 text-base font-semibold text-white">Em breve</p>
-            <p className="text-sm text-slate-300">Histórico e novas buscas de estabelecimentos.</p>
+            <p className="mt-1 text-base font-semibold text-white">Disponível</p>
+            <p className="text-sm text-slate-300">
+              Veja consultas e contatos mais recentes filtrados pelo seu tenant.
+            </p>
           </div>
           <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Suporte</p>
-            <p className="mt-1 text-base font-semibold text-white">Em breve</p>
-            <p className="text-sm text-slate-300">Abra tickets e fale com nosso time.</p>
+            <p className="mt-1 text-base font-semibold text-white">Disponível</p>
+            <p className="text-sm text-slate-300">Acompanhe mensagens e saiba como falar com o time.</p>
           </div>
         </div>
       </div>
