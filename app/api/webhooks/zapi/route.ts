@@ -6,6 +6,8 @@ import { resolveOwnerId } from '../../../../lib/tenant'
 import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 type ZapiIncoming = {
+  type?: string
+  status?: string
   phone?: string
   from?: string
   remoteJid?: string
@@ -124,6 +126,19 @@ export async function POST(req: NextRequest) {
   }
 
   const payload = (await req.json().catch(() => ({}))) as ZapiIncoming
+
+  // Ignora callbacks de presença/typing que não carregam texto
+  if (payload.type && payload.type !== 'message') {
+    logInfo('zapi webhook ignored non-message event', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      type: payload.type,
+      status: payload.status,
+    })
+    return NextResponse.json({ ok: true, ignored: payload.type }, { status: 200 })
+  }
+
   const phone = extractPhone(payload)
 
   if (!phone) {
@@ -139,7 +154,19 @@ export async function POST(req: NextRequest) {
   const ownerId = resolveOwnerId({ host })
 
   const body = extractBody(payload)
+  const cleanBody = body.trim()
   const contactName = payload.pushName || null
+
+  if (!cleanBody) {
+    logWarn('zapi webhook ignored empty body', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      ownerId,
+      phone,
+    })
+    return NextResponse.json({ ok: true, ignored: 'empty body' }, { status: 200 })
+  }
 
   const withRetry = async <T>(fn: () => Promise<T>, attempts = 3, delayMs = 200): Promise<T> => {
     let lastError: any
@@ -190,14 +217,19 @@ export async function POST(req: NextRequest) {
   }
 
   const { error: insertError } = await withRetry(async () => {
-    const resp = await supabaseAdmin.from('messages').insert({
-      owner_id: ownerId,
-      contact_id: contact.id,
-      direction: 'in',
-      body,
-      status: 'received',
-      provider_message_id: payload.message?.id ?? null,
-    })
+    const resp = await supabaseAdmin
+      .from('messages')
+      .upsert(
+        {
+          owner_id: ownerId,
+          contact_id: contact.id,
+          direction: 'in',
+          body: cleanBody,
+          status: 'received',
+          provider_message_id: payload.message?.id ?? null,
+        },
+        { onConflict: 'owner_id,provider_message_id' }
+      )
     return resp
   })
 
