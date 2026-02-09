@@ -59,6 +59,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   )
   const [sending, setSending] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [polling, setPolling] = useState(false)
 
   const activeConversa = useMemo(
     () => conversas.find((c) => c.phone === activePhone) ?? null,
@@ -66,6 +67,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   )
 
   const loadConversas = async () => {
+    setPolling(true)
     setLoadingConversas(true)
     try {
       const resp = await fetch('/api/atendimento/conversas')
@@ -76,6 +78,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       }
     } finally {
       setLoadingConversas(false)
+      setPolling(false)
     }
   }
 
@@ -174,45 +177,19 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     <div className="min-h-screen bg-surface text-slate-50">
       <SidebarLayout
         title="Atendimento"
-        description="Gerencie disparos iniciais, veja conversas e responda direto pelo WhatsApp (Z-API)."
+        description="Conversas via WhatsApp (Z-API). Dispare, acompanhe e responda."
         navItems={[{ href: '/atendimento', label: 'Atendimento' }]}
       >
-        <div className="flex flex-col gap-6 lg:flex-row lg:gap-5">
-          <section className="w-full lg:w-[34%]">
-            <div className="glass-panel rounded-3xl border border-white/5 p-5 shadow-xl">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Disparo</p>
-                  <h2 className="text-xl font-semibold text-white">Mensagem inicial</h2>
-                </div>
+        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+          {/* Lista de conversas */}
+          <div className="flex h-[78vh] flex-col rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Conversas</p>
+                <h3 className="text-lg font-semibold text-white">Últimos contatos</h3>
               </div>
-              <textarea
-                className="input-field mb-3 h-24 w-full resize-none text-sm"
-                placeholder="Cole telefones separados por quebra de linha, vírgula ou espaço"
-                value={blastPhones}
-                onChange={(e) => setBlastPhones(e.target.value)}
-              />
-              <textarea
-                className="input-field mb-3 h-28 w-full resize-none text-sm"
-                placeholder="Sua mensagem inicial"
-                value={blastMessage}
-                onChange={(e) => setBlastMessage(e.target.value)}
-              />
-              <button
-                onClick={sendBlast}
-                disabled={sending}
-                className="btn-primary w-full text-sm font-semibold"
-              >
-                {sending ? 'Enviando...' : 'Disparar mensagem'}
-              </button>
-            </div>
-
-            <div className="mt-5 glass-panel rounded-3xl border border-white/5 p-4 shadow-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Conversas</p>
-                  <h3 className="text-lg font-semibold text-white">Últimos contatos</h3>
-                </div>
+              <div className="flex items-center gap-2">
+                {polling && <span className="h-2 w-2 animate-ping rounded-full bg-brand" />}
                 <button
                   onClick={loadConversas}
                   className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-100 hover:bg-white/20"
@@ -220,49 +197,49 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   Atualizar
                 </button>
               </div>
-              <div className="mt-3 max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-                {loadingConversas && <p className="text-sm text-slate-400">Carregando...</p>}
-                {!loadingConversas && conversas.length === 0 && (
-                  <p className="text-sm text-slate-400">Nenhuma conversa ainda.</p>
-                )}
-                {conversas.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setActivePhone(c.phone)}
-                    className={`w-full rounded-2xl px-3 py-3 text-left transition hover:bg-white/5 ${
-                      activePhone === c.phone ? 'bg-white/10 ring-1 ring-white/10' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-white">
-                          {c.name || 'Contato sem nome'}
-                        </p>
-                        <p className="text-xs text-slate-400">{formatPhone(c.phone)}</p>
-                        {c.last_message && (
-                          <p className="line-clamp-2 text-xs text-slate-300">
-                            {c.last_message.direction === 'out' ? 'Você: ' : ''} {c.last_message.body}
-                          </p>
-                        )}
-                      </div>
-                      <span className="text-[11px] uppercase text-emerald-300">
-                        {c.is_whatsapp ? 'WhatsApp' : ''}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
             </div>
-          </section>
+            <div className="relative flex-1 overflow-y-auto">
+              {!loadingConversas && conversas.length === 0 && (
+                <p className="p-3 text-sm text-slate-400">Nenhuma conversa ainda.</p>
+              )}
+              {conversas.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setActivePhone(c.phone)}
+                  className={`mb-2 w-full rounded-xl px-3 py-3 text-left transition ${
+                    activePhone === c.phone
+                      ? 'bg-gradient-to-r from-brand/15 to-accent/15 ring-1 ring-white/15'
+                      : 'hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-white">{c.name || 'Contato sem nome'}</p>
+                      <p className="text-xs text-slate-400">{formatPhone(c.phone)}</p>
+                      {c.last_message && (
+                        <p className="line-clamp-2 text-xs text-slate-300">
+                          {c.last_message.direction === 'out' ? 'Você: ' : ''} {c.last_message.body}
+                        </p>
+                      )}
+                    </div>
+                    {c.is_whatsapp && (
+                      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
+                        WhatsApp
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <section className="glass-panel w-full flex-1 rounded-3xl border border-white/5 p-5 shadow-xl">
+          {/* Chat */}
+          <div className="flex h-[78vh] flex-col rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
             {activeConversa ? (
-              <div className="flex h-full flex-col gap-4">
-                <header className="flex items-center justify-between gap-2 border-b border-white/5 pb-3">
+              <>
+                <header className="mb-3 flex items-center justify-between border-b border-white/5 pb-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                      Atendimento
-                    </p>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Atendimento</p>
                     <h2 className="text-xl font-semibold text-white">
                       {activeConversa.name || 'Contato sem nome'}
                     </h2>
@@ -271,14 +248,13 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 </header>
 
                 <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-white/5 p-4">
-                  {loadingMessages && <p className="text-sm text-slate-400">Carregando...</p>}
                   {!loadingMessages && messages.length === 0 && (
                     <p className="text-sm text-slate-400">Nenhuma mensagem ainda.</p>
                   )}
                   {messages.map((m) => (
                     <div
                       key={m.id}
-                      className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${
+                      className={`max-w-[72%] rounded-2xl px-3 py-2 text-sm ${
                         m.direction === 'out'
                           ? 'ml-auto bg-gradient-to-r from-brand/30 to-accent/30 text-white'
                           : 'bg-white/10 text-slate-100'
@@ -292,14 +268,15 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-3 rounded-2xl bg-white/5 p-3">
+                <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-white/5 p-3">
                   <textarea
                     className="input-field min-h-[90px] w-full resize-none text-sm"
                     placeholder="Digite sua resposta..."
                     value={composer}
                     onChange={(e) => setComposer(e.target.value)}
                   />
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>Enter para enviar • Shift+Enter para nova linha</span>
                     <button
                       onClick={sendMessage}
                       disabled={sending || !composer.trim()}
@@ -309,13 +286,13 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     </button>
                   </div>
                 </div>
-              </div>
+              </>
             ) : (
               <div className="flex h-full items-center justify-center text-slate-400">
-                Selecione uma conversa ao lado.
+                Selecione uma conversa na esquerda.
               </div>
             )}
-          </section>
+          </div>
         </div>
       </SidebarLayout>
 
