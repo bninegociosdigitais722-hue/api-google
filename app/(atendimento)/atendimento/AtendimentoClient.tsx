@@ -96,7 +96,19 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     if (!conversas.length) {
       loadConversas()
     }
+    const interval = setInterval(() => {
+      loadConversas()
+    }, 5000)
+    return () => clearInterval(interval)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!activePhone) return
+    const interval = setInterval(() => {
+      loadMessages(activePhone)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [activePhone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (activePhone) {
