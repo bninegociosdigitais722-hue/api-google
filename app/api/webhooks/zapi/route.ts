@@ -25,14 +25,14 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
   const candidates = [
     payload.phone,
     payload.from,
-    payload.remoteJid,
+    payload.remoteJid?.split('@')[0],
     payload.message?.phone,
     payload.message?.from,
   ].filter(Boolean) as string[]
 
   for (const cand of candidates) {
     const digits = cand.replace(/\D/g, '')
-    if (digits.length >= 10) {
+    if (digits.length >= 10 && digits.length <= 13) {
       const normalized = normalizePhoneToBR(digits)
       if (normalized) return normalized
     }
@@ -41,13 +41,24 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
 }
 
 const extractBody = (payload: ZapiIncoming): string => {
-  return (
+  const raw =
     payload.message?.body ||
     payload.message?.text ||
     payload.body ||
     payload.text ||
     '[mensagem sem texto]'
-  )
+
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object' && 'message' in parsed) {
+      const m = (parsed as any).message
+      if (typeof m === 'string' && m.trim()) return m
+    }
+  } catch {
+    // não é JSON, segue com raw
+  }
+
+  return raw
 }
 
 const verifySignature = (req: NextRequest) => {
