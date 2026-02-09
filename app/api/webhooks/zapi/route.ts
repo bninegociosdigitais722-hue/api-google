@@ -12,6 +12,10 @@ type ZapiIncoming = {
   from?: string
   remoteJid?: string
   pushName?: string
+  sender?: any
+  participant?: string
+  chatId?: string
+  chatid?: string
   message?: {
     id?: string
     from?: string
@@ -30,6 +34,10 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
     payload.remoteJid?.split('@')[0],
     payload.message?.phone,
     payload.message?.from,
+    typeof payload.sender === 'string' ? payload.sender : payload.sender?.phone,
+    payload.participant,
+    payload.chatId,
+    payload.chatid,
   ].filter(Boolean) as string[]
 
   for (const cand of candidates) {
@@ -43,13 +51,30 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
 }
 
 const extractBody = (payload: ZapiIncoming): string => {
-  const pickText = (value: any): string | null => {
-    if (!value) return null
+  const pickText = (value: any, depth = 0): string | null => {
+    if (!value || depth > 3) return null
     if (typeof value === 'string') return value
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const nested = pickText(item, depth + 1)
+        if (nested) return nested
+      }
+      return null
+    }
     if (typeof value === 'object') {
-      const candidates = [value.message, value.text, value.body, value.caption]
+      const candidates = [
+        value.message,
+        value.text,
+        value.body,
+        value.caption,
+        value.conversation,
+      ]
       for (const cand of candidates) {
         if (typeof cand === 'string' && cand.trim()) return cand
+      }
+      for (const key of Object.keys(value)) {
+        const nested = pickText(value[key], depth + 1)
+        if (nested) return nested
       }
     }
     return null
@@ -61,6 +86,7 @@ const extractBody = (payload: ZapiIncoming): string => {
     pickText(payload.body),
     pickText(payload.text),
     pickText(payload.message),
+    pickText(payload),
   ].filter((v): v is string => typeof v === 'string' && v.length > 0)
 
   for (const cand of candidates) {
@@ -140,18 +166,6 @@ export async function POST(req: NextRequest) {
 
   const payload = (await req.json().catch(() => ({}))) as ZapiIncoming
 
-  // Ignora callbacks de presença/typing que não carregam texto
-  if (payload.type && !payload.type.toLowerCase().includes('message')) {
-    logInfo('zapi webhook ignored non-message event', {
-      tag: 'api/webhooks/zapi',
-      requestId,
-      host,
-      type: payload.type,
-      status: payload.status,
-    })
-    return NextResponse.json({ ok: true, ignored: payload.type }, { status: 200 })
-  }
-
   const phone = extractPhone(payload)
 
   if (!phone) {
@@ -177,6 +191,10 @@ export async function POST(req: NextRequest) {
       host,
       ownerId,
       phone,
+      type: payload.type,
+      status: payload.status,
+      keys: Object.keys(payload),
+      messageKeys: payload.message ? Object.keys(payload.message) : [],
     })
     return NextResponse.json({ ok: true, ignored: 'empty body' }, { status: 200 })
   }
