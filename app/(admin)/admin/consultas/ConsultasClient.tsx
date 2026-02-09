@@ -357,8 +357,10 @@ export default function ConsultasClient({
                                 body: JSON.stringify({
                                   phones: [item.telefone],
                                   template: 'supercotacao_demo',
-                                  message:
-                                    'Oi! Vi seu estabelecimento e queria te convidar para testar o supercotacao.com.br (7 dias grátis). Posso enviar mais detalhes?',
+                                  message: `Oi! Tudo bem? 😊 Sou o Ítalo.
+Vi seu estabelecimento no Google Maps e queria te convidar para testar o Super Cotação — sistema que ajuda empresas a economizar nas compras comparando preços de fornecedores pelo WhatsApp.
+Acesse: www.supercotacao.com.br
+São 7 dias grátis, sem compromisso. Posso te explicar rapidinho como funciona?`,
                                 }),
                               })
                               const data = await resp.json()
