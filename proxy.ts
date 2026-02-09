@@ -3,8 +3,6 @@ import { findHostRule, pathAllowedForHost } from './lib/tenant'
 import { logWarn } from './lib/logger'
 import { rateLimit } from './lib/rate-limit'
 
-export const runtime = 'nodejs'
-
 export default async function proxy(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const rule = findHostRule(host)
