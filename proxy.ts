@@ -1,43 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findHostRule, pathAllowedForHost } from './lib/tenant'
 import { logWarn } from './lib/logger'
+import { rateLimit } from './lib/rate-limit'
 
 export const runtime = 'nodejs'
 
-const RATE_LIMIT_WINDOW_MS = 60_000
-const RATE_LIMIT_MAX = 60
-type RateBucket = { bucket: number; count: number }
-const rateLimitStore = new Map<string, RateBucket>() // key -> bucket data
-
-const rateLimited = (ip: string) => {
-  const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS)
-  const key = ip
-  const current = rateLimitStore.get(key)
-
-  if (!current || current.bucket !== bucket) {
-    rateLimitStore.set(key, { bucket, count: 1 })
-    return false
-  }
-
-  const nextCount = current.count + 1
-  rateLimitStore.set(key, { bucket, count: nextCount })
-  return nextCount > RATE_LIMIT_MAX
-}
-
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const rule = findHostRule(host)
   const pathname = req.nextUrl.pathname
   const isApi = pathname.startsWith('/api')
 
-  const ip =
-    req.headers.get('x-real-ip') ||
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    'unknown'
-
-  if (isApi && rateLimited(ip)) {
-    logWarn('rate_limit_exceeded', { path: pathname, host, ip })
-    return NextResponse.json({ message: 'Too many requests' }, { status: 429 })
+  if (isApi) {
+    const ip =
+      req.headers.get('x-real-ip') ||
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      'unknown'
+    const key = `${host ?? 'unknown'}:${ip}:${pathname.split('/').slice(0, 3).join('/')}`
+    const { limited } = await rateLimit({ key, limit: 120, windowMs: 60_000 })
+    if (limited) {
+      logWarn('rate_limit_exceeded', { path: pathname, host, ip })
+      return NextResponse.json({ message: 'Too many requests' }, { status: 429 })
+    }
   }
 
   // Redireciona raiz para prefixo padrão conforme host (ex.: admin → /admin/dashboard; atendimento → /atendimento)
@@ -77,3 +61,4 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt).*)'],
 }
+

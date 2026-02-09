@@ -19,6 +19,8 @@ type Conversa = {
 
 export const runtime = 'nodejs'
 
+export const revalidate = 0
+
 export async function GET(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const requestId = resolveRequestId(req.headers)

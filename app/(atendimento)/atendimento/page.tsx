@@ -8,6 +8,8 @@ export const metadata = {
   title: 'Atendimento | Radar Local',
 }
 
+export const revalidate = 0
+
 export default async function AtendimentoPage() {
   const headersList = await headers()
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host')

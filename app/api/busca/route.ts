@@ -263,7 +263,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(filtered.length ? { resultados: filtered } : { resultados: [] }, {
       status: 200,
-      headers: { 'Cache-Control': 's-maxage=120, stale-while-revalidate=120' },
+      headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=60' },
     })
   } catch (error) {
     logError('unexpected_error', { requestId, error: (error as Error)?.message })

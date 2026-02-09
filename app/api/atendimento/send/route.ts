@@ -14,6 +14,7 @@ type BodyPayload = {
 type SendResult = { phone: string; status: 'sent' | 'failed'; error?: string }
 
 export const runtime = 'nodejs'
+export const revalidate = 0
 
 export async function POST(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
