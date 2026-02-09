@@ -8,6 +8,8 @@ import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/lo
 type ZapiIncoming = {
   type?: string
   status?: string
+  notification?: string
+  waitingMessage?: boolean
   phone?: string
   from?: string
   remoteJid?: string
@@ -16,15 +18,28 @@ type ZapiIncoming = {
   participant?: string
   chatId?: string
   chatid?: string
+  fromMe?: boolean
+  messageId?: string
   message?: {
     id?: string
+    messageId?: string
     from?: string
     phone?: string
     body?: string
     text?: string
   }
+  text?: { message?: string } | string
+  image?: { caption?: string; imageUrl?: string; thumbnailUrl?: string; mimeType?: string }
+  audio?: { audioUrl?: string; mimeType?: string }
+  video?: { videoUrl?: string; caption?: string; mimeType?: string }
+  document?: { documentUrl?: string; title?: string; fileName?: string; mimeType?: string }
+  contact?: { displayName?: string; vCard?: string }
+  location?: { name?: string; address?: string; latitude?: number; longitude?: number }
+  sticker?: { stickerUrl?: string; mimeType?: string }
+  reaction?: { text?: string }
+  listResponse?: { title?: string }
+  buttonResponse?: { selectedDisplayText?: string }
   body?: string
-  text?: string
 }
 
 const extractPhone = (payload: ZapiIncoming): string | null => {
@@ -50,67 +65,66 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
   return null
 }
 
+const normalizeCallbackType = (value?: string | null) =>
+  value ? value.replace(/\s+/g, '').toLowerCase() : ''
+
+const hasMessagePayload = (payload: ZapiIncoming): boolean => {
+  const textValue =
+    typeof payload.text === 'string' ? payload.text.trim() : payload.text?.message?.trim()
+  return Boolean(
+    textValue ||
+      payload.message?.body?.trim() ||
+      payload.message?.text?.trim() ||
+      payload.image?.imageUrl ||
+      payload.image?.caption ||
+      payload.audio?.audioUrl ||
+      payload.video?.videoUrl ||
+      payload.video?.caption ||
+      payload.document?.documentUrl ||
+      payload.document?.title ||
+      payload.document?.fileName ||
+      payload.contact?.displayName ||
+      payload.contact?.vCard ||
+      payload.location?.latitude ||
+      payload.location?.longitude ||
+      payload.sticker?.stickerUrl ||
+      payload.reaction?.text ||
+      payload.listResponse?.title ||
+      payload.buttonResponse?.selectedDisplayText
+  )
+}
+
 const extractBody = (payload: ZapiIncoming): string => {
-  const pickText = (value: any, depth = 0): string | null => {
-    if (!value || depth > 3) return null
-    if (typeof value === 'string') return value
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        const nested = pickText(item, depth + 1)
-        if (nested) return nested
-      }
-      return null
-    }
-    if (typeof value === 'object') {
-      const candidates = [
-        value.message,
-        value.text,
-        value.body,
-        value.caption,
-        value.conversation,
-      ]
-      for (const cand of candidates) {
-        if (typeof cand === 'string' && cand.trim()) return cand
-      }
-      for (const key of Object.keys(value)) {
-        const nested = pickText(value[key], depth + 1)
-        if (nested) return nested
-      }
-    }
-    return null
-  }
-
+  const textValue =
+    typeof payload.text === 'string' ? payload.text.trim() : payload.text?.message?.trim()
   const candidates = [
-    pickText(payload.message?.body),
-    pickText(payload.message?.text),
-    pickText(payload.body),
-    pickText(payload.text),
-    pickText(payload.message),
-    pickText(payload),
-  ].filter((v): v is string => typeof v === 'string' && v.length > 0)
+    textValue,
+    payload.message?.body?.trim(),
+    payload.message?.text?.trim(),
+    payload.image?.caption?.trim(),
+    payload.video?.caption?.trim(),
+    payload.document?.title?.trim(),
+    payload.document?.fileName?.trim(),
+    payload.contact?.displayName?.trim(),
+    payload.listResponse?.title?.trim(),
+    payload.buttonResponse?.selectedDisplayText?.trim(),
+  ].filter((v): v is string => Boolean(v && v.trim()))
 
-  for (const cand of candidates) {
-    const trimmed = cand.trim()
-    if (!trimmed) continue
-
-    // 1) Tenta JSON.parse direto
-    try {
-      const parsed = JSON.parse(trimmed)
-      if (parsed && typeof parsed === 'object') {
-        const m = (parsed as any).message || (parsed as any).text
-        if (typeof m === 'string' && m.trim()) return m
-      }
-    } catch {
-      // ignora
-    }
-
-    // 2) Tenta regex "message":"..." ou "text":"..."
-    const match = trimmed.match(/"(message|text)"\s*:\s*"([^"]+)"/)
-    if (match?.[2]) return match[2].replace(/\\n/g, '\n')
-
-    // 3) Texto plano
-    return trimmed
+  if (candidates.length > 0) {
+    return candidates[0].trim()
   }
+
+  if (payload.image?.imageUrl) return '[imagem]'
+  if (payload.video?.videoUrl) return '[vídeo]'
+  if (payload.audio?.audioUrl) return '[áudio]'
+  if (payload.document?.documentUrl) {
+    const label = payload.document.fileName ? `: ${payload.document.fileName}` : ''
+    return `[documento${label}]`
+  }
+  if (payload.contact?.vCard) return '[contato]'
+  if (payload.location?.latitude || payload.location?.longitude) return '[localização]'
+  if (payload.sticker?.stickerUrl) return '[sticker]'
+  if (payload.reaction?.text) return `Reação: ${payload.reaction.text}`
 
   return ''
 }
@@ -180,6 +194,51 @@ export async function POST(req: NextRequest) {
 
   const ownerId = resolveOwnerId({ host })
 
+  const callbackType = normalizeCallbackType(payload.type)
+  const isReceivedCallback = callbackType === 'receivedcallback'
+  const hasMessage = hasMessagePayload(payload)
+
+  if (!isReceivedCallback && !hasMessage) {
+    logInfo('zapi webhook ignored non-message event', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      ownerId,
+      phone,
+      type: payload.type,
+      status: payload.status,
+      notification: payload.notification,
+    })
+    return NextResponse.json({ ok: true, ignored: 'non-message' }, { status: 200 })
+  }
+
+  if (!hasMessage) {
+    logWarn('zapi webhook ignored unsupported message', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      ownerId,
+      phone,
+      type: payload.type,
+      status: payload.status,
+      notification: payload.notification,
+      keys: Object.keys(payload),
+    })
+    return NextResponse.json({ ok: true, ignored: 'unsupported message' }, { status: 200 })
+  }
+
+  if (payload.fromMe) {
+    logInfo('zapi webhook ignored fromMe message', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      ownerId,
+      phone,
+      type: payload.type,
+    })
+    return NextResponse.json({ ok: true, ignored: 'fromMe' }, { status: 200 })
+  }
+
   const body = extractBody(payload)
   const cleanBody = body.trim()
   const contactName = payload.pushName || null
@@ -247,7 +306,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const providerMessageId = payload.message?.id ?? null
+  const providerMessageId =
+    payload.message?.id ?? payload.message?.messageId ?? payload.messageId ?? null
 
   if (providerMessageId) {
     const { data: existing } = await supabaseAdmin
