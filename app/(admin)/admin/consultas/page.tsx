@@ -19,10 +19,10 @@ export default async function ConsultasPage() {
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
 
-  const [{ data: results, error }, { data: countData, error: countError }] = await Promise.all([
+  const [{ data: results, error }, { count: total, error: countError }] = await Promise.all([
     supabaseServer
       .from('contacts')
-      .select('id, name, phone, is_whatsapp, last_message_at, address', { count: 'exact' })
+      .select('id, name, phone, is_whatsapp, last_message_at', { count: 'exact' })
       .eq('owner_id', ownerId)
       .order('last_message_at', { ascending: false })
       .limit(50),
@@ -30,8 +30,22 @@ export default async function ConsultasPage() {
   ])
 
   const contatos = results ?? []
-  const total = countData?.length ?? countData?.[0] ?? countData ?? null // count vem via header; fallback defensivo
   const hasError = error || countError
 
-  return <ConsultasClient initialResults={contatos} total={typeof total === 'number' ? total : null} error={hasError?.message} />
+  return (
+    <ConsultasClient
+      initialResults={contatos.map((c) => ({
+        id: String(c.id),
+        nome: c.name ?? 'Contato',
+        endereco: 'Endereço não informado',
+        telefone: c.phone,
+        nota: null,
+        mapsUrl: '#',
+        fotoUrl: null,
+        temWhatsapp: c.is_whatsapp ?? undefined,
+      }))}
+      total={typeof total === 'number' ? total : null}
+      error={hasError?.message}
+    />
+  )
 }
