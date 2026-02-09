@@ -247,20 +247,31 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { error: insertError } = await withRetry(async () => {
-    const resp = await supabaseAdmin
+  const providerMessageId = payload.message?.id ?? null
+
+  if (providerMessageId) {
+    const { data: existing } = await supabaseAdmin
       .from('messages')
-      .upsert(
-        {
-          owner_id: ownerId,
-          contact_id: contact.id,
-          direction: 'in',
-          body: cleanBody,
-          status: 'received',
-          provider_message_id: payload.message?.id ?? null,
-        },
-        { onConflict: 'owner_id,provider_message_id' }
-      )
+      .select('id')
+      .eq('owner_id', ownerId)
+      .eq('provider_message_id', providerMessageId)
+      .limit(1)
+      .maybeSingle()
+
+    if (existing?.id) {
+      return NextResponse.json({ ok: true, deduped: true }, { status: 200 })
+    }
+  }
+
+  const { error: insertError } = await withRetry(async () => {
+    const resp = await supabaseAdmin.from('messages').insert({
+      owner_id: ownerId,
+      contact_id: contact.id,
+      direction: 'in',
+      body: cleanBody,
+      status: 'received',
+      provider_message_id: providerMessageId,
+    })
     return resp
   })
 
