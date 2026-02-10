@@ -42,6 +42,19 @@ type ZapiIncoming = {
   body?: string
 }
 
+type MessageMedia = {
+  type: 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'contact' | 'location'
+  url?: string | null
+  thumbnailUrl?: string | null
+  mimeType?: string | null
+  fileName?: string | null
+  caption?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  address?: string | null
+  name?: string | null
+}
+
 const extractPhone = (payload: ZapiIncoming): string | null => {
   const candidates = [
     payload.phone,
@@ -127,6 +140,65 @@ const extractBody = (payload: ZapiIncoming): string => {
   if (payload.reaction?.text) return `Reação: ${payload.reaction.text}`
 
   return ''
+}
+
+const extractMedia = (payload: ZapiIncoming): MessageMedia | null => {
+  if (payload.image?.imageUrl) {
+    return {
+      type: 'image',
+      url: payload.image.imageUrl,
+      thumbnailUrl: payload.image.thumbnailUrl ?? null,
+      mimeType: payload.image.mimeType ?? null,
+      caption: payload.image.caption ?? null,
+    }
+  }
+  if (payload.video?.videoUrl) {
+    return {
+      type: 'video',
+      url: payload.video.videoUrl,
+      mimeType: payload.video.mimeType ?? null,
+      caption: payload.video.caption ?? null,
+    }
+  }
+  if (payload.audio?.audioUrl) {
+    return {
+      type: 'audio',
+      url: payload.audio.audioUrl,
+      mimeType: payload.audio.mimeType ?? null,
+    }
+  }
+  if (payload.document?.documentUrl) {
+    return {
+      type: 'document',
+      url: payload.document.documentUrl,
+      mimeType: payload.document.mimeType ?? null,
+      fileName: payload.document.fileName ?? payload.document.title ?? null,
+      caption: payload.document.title ?? null,
+    }
+  }
+  if (payload.sticker?.stickerUrl) {
+    return {
+      type: 'sticker',
+      url: payload.sticker.stickerUrl,
+      mimeType: payload.sticker.mimeType ?? null,
+    }
+  }
+  if (payload.contact?.vCard) {
+    return {
+      type: 'contact',
+      name: payload.contact.displayName ?? null,
+    }
+  }
+  if (payload.location?.latitude || payload.location?.longitude) {
+    return {
+      type: 'location',
+      latitude: payload.location.latitude ?? null,
+      longitude: payload.location.longitude ?? null,
+      name: payload.location.name ?? null,
+      address: payload.location.address ?? null,
+    }
+  }
+  return null
 }
 
 const verifySignature = (req: NextRequest) => {
@@ -240,6 +312,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = extractBody(payload)
+  const media = extractMedia(payload)
   const cleanBody = body.trim()
   const contactName =
     payload.pushName ||
@@ -334,6 +407,7 @@ export async function POST(req: NextRequest) {
       body: cleanBody,
       status: 'received',
       provider_message_id: providerMessageId,
+      media,
     })
     return resp
   })

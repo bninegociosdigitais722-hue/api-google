@@ -66,7 +66,7 @@ export default async function AtendimentoPage() {
       const contactId = conversas[0].id
       const { data: msgsAsc } = await db
         .from('messages')
-        .select('id, contact_id, body, direction, status, created_at')
+        .select('id, contact_id, body, direction, status, created_at, media')
         .eq('contact_id', contactId)
         .eq('owner_id', ownerId)
         .order('created_at', { ascending: true })

@@ -12,6 +12,7 @@ type Message = {
   direction: 'in' | 'out'
   status: string | null
   created_at: string
+  media?: Record<string, any> | null
 }
 
 export const runtime = 'nodejs'
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
 
   const { data: messages, error } = await db
     .from('messages')
-    .select('id, contact_id, body, direction, status, created_at')
+    .select('id, contact_id, body, direction, status, created_at, media')
     .eq('contact_id', contact.id)
     .eq('owner_id', ownerId)
     .order('created_at', { ascending: true })

@@ -9,12 +9,45 @@ type SendTextResponse = {
   detail?: string
 }
 
+type ZapiConfig = {
+  instanceId: string
+  token: string
+  clientToken: string
+}
+
 const ensureEnv = (name: string): string => {
   const value = process.env[name]
   if (!value) {
     throw new Error(`Variável de ambiente ausente: ${name}`)
   }
   return value
+}
+
+const getZapiConfig = (): ZapiConfig => ({
+  instanceId: ensureEnv('ZAPI_INSTANCE_ID'),
+  token: ensureEnv('ZAPI_TOKEN'),
+  clientToken: ensureEnv('ZAPI_CLIENT_TOKEN'),
+})
+
+const zapiPost = async <T>(path: string, payload: Record<string, any>): Promise<T> => {
+  const { instanceId, token, clientToken } = getZapiConfig()
+  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/${path}`
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Client-Token': clientToken,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!resp.ok) {
+    const text = await resp.text()
+    throw new Error(`Z-API respondeu ${resp.status}: ${text || resp.statusText}`)
+  }
+
+  return (await resp.json()) as T
 }
 
 export const normalizePhoneToBR = (phone?: string | null): string | null => {
@@ -30,9 +63,7 @@ export const normalizePhoneToBR = (phone?: string | null): string | null => {
 export const phoneExistsBatch = async (phones: string[]): Promise<Map<string, boolean>> => {
   if (phones.length === 0) return new Map()
 
-  const instanceId = ensureEnv('ZAPI_INSTANCE_ID')
-  const token = ensureEnv('ZAPI_TOKEN')
-  const clientToken = ensureEnv('ZAPI_CLIENT_TOKEN')
+  const { instanceId, token, clientToken } = getZapiConfig()
 
   const unique = Array.from(new Set(phones))
 
@@ -61,28 +92,39 @@ export const phoneExistsBatch = async (phones: string[]): Promise<Map<string, bo
 }
 
 export const sendText = async (phone: string, message: string): Promise<SendTextResponse> => {
-  const instanceId = ensureEnv('ZAPI_INSTANCE_ID')
-  const token = ensureEnv('ZAPI_TOKEN')
-  const clientToken = ensureEnv('ZAPI_CLIENT_TOKEN')
+  return zapiPost<SendTextResponse>('send-text', { phone, message })
+}
 
-  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`
+export const sendImage = async (
+  phone: string,
+  image: string,
+  caption?: string | null
+): Promise<SendTextResponse> => {
+  const payload: Record<string, any> = { phone, image }
+  if (caption) payload.caption = caption
+  return zapiPost<SendTextResponse>('send-image', payload)
+}
 
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Client-Token': clientToken,
-    },
-    body: JSON.stringify({
-      phone,
-      message,
-    }),
-  })
+export const sendDocument = async (
+  phone: string,
+  document: string,
+  extension: string,
+  fileName?: string | null
+): Promise<SendTextResponse> => {
+  const payload: Record<string, any> = { phone, document }
+  if (fileName) payload.fileName = fileName
+  return zapiPost<SendTextResponse>(`send-document/${extension}`, payload)
+}
 
-  if (!resp.ok) {
-    const text = await resp.text()
-    throw new Error(`Z-API respondeu ${resp.status}: ${text || resp.statusText}`)
-  }
+export const sendAudio = async (phone: string, audio: string): Promise<SendTextResponse> =>
+  zapiPost<SendTextResponse>('send-audio', { phone, audio })
 
-  return (await resp.json()) as SendTextResponse
+export const sendVideo = async (
+  phone: string,
+  video: string,
+  caption?: string | null
+): Promise<SendTextResponse> => {
+  const payload: Record<string, any> = { phone, video }
+  if (caption) payload.caption = caption
+  return zapiPost<SendTextResponse>('send-video', payload)
 }

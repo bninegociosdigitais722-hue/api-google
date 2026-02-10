@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import SidebarLayout from '../../../components/SidebarLayout'
 
 export type Conversa = {
@@ -23,6 +23,20 @@ export type Message = {
   direction: 'in' | 'out'
   status: string | null
   created_at: string
+  media?: MessageMedia | null
+}
+
+export type MessageMedia = {
+  type: 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'contact' | 'location'
+  url?: string | null
+  thumbnailUrl?: string | null
+  mimeType?: string | null
+  fileName?: string | null
+  caption?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  address?: string | null
+  name?: string | null
 }
 
 type Props = {
@@ -42,6 +56,94 @@ const formatPhone = (phone: string) => {
   return `+${phone}`
 }
 
+const MAX_ATTACHMENT_SIZE_MB = 8
+
+const formatBytes = (bytes: number) => {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const idx = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / Math.pow(1024, idx)
+  return `${value.toFixed(value >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`
+}
+
+const fileToBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      const base64 = result.split(',')[1] || ''
+      resolve(base64)
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+
+const inferAttachmentKind = (file: File) => {
+  const mimeType = file.type
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType.startsWith('audio/')) return 'audio'
+  if (mimeType.startsWith('video/')) return 'video'
+  return 'document'
+}
+
+const renderMedia = (media?: MessageMedia | null) => {
+  if (!media) return null
+  const label = media.fileName || media.mimeType || media.name || 'Anexo'
+
+  if (media.type === 'image' && (media.url || media.thumbnailUrl)) {
+    return (
+      <img
+        src={media.url || media.thumbnailUrl || ''}
+        alt={label}
+        className="mt-2 max-h-56 w-full rounded-xl object-cover ring-1 ring-slate-200/70"
+        loading="lazy"
+      />
+    )
+  }
+  if (media.type === 'video' && media.url) {
+    return <video className="mt-2 w-full rounded-xl ring-1 ring-slate-200/70" controls src={media.url} />
+  }
+  if (media.type === 'audio' && media.url) {
+    return <audio className="mt-2 w-full" controls src={media.url} />
+  }
+  if (media.type === 'document' && media.url) {
+    return (
+      <a
+        className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
+        href={media.url}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Baixar {label}
+      </a>
+    )
+  }
+  if (media.type === 'location' && (media.latitude || media.longitude)) {
+    return (
+      <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/70">
+        Localização: {media.latitude}, {media.longitude}
+      </div>
+    )
+  }
+  if (media.url) {
+    return (
+      <a
+        className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
+        href={media.url}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Abrir anexo
+      </a>
+    )
+  }
+  return (
+    <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/70">
+      Anexo: {label}
+    </div>
+  )
+}
+
 export default function AtendimentoClient({ initialConversas, initialMessagesByPhone }: Props) {
   const [conversas, setConversas] = useState<Conversa[]>(initialConversas)
   const [loadingConversas, setLoadingConversas] = useState(false)
@@ -53,6 +155,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   )
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [composer, setComposer] = useState('')
+  const [attachment, setAttachment] = useState<File | null>(null)
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null)
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [blastPhones, setBlastPhones] = useState('')
   const [blastMessage, setBlastMessage] = useState(
     'Olá! Encontrei seu contato e queria te mostrar o radar de comércios perto de você. Posso te enviar mais detalhes?'
@@ -60,6 +165,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   const [sending, setSending] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [polling, setPolling] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const activeConversa = useMemo(
     () => conversas.find((c) => c.phone === activePhone) ?? null,
@@ -88,7 +194,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     try {
       const resp = await fetch(`/api/atendimento/messages?phone=${encodeURIComponent(phone)}`)
       const data = await resp.json()
-      const cleaned = (data.messages ?? []).filter((m: Message) => m.body && m.body.trim())
+      const cleaned = (data.messages ?? []).filter(
+        (m: Message) => (m.body && m.body.trim()) || m.media
+      )
       setMessages(cleaned)
     } finally {
       setLoadingMessages(false)
@@ -125,23 +233,66 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     }
   }, [activePhone]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (attachment && attachment.type.startsWith('image/')) {
+      const url = URL.createObjectURL(attachment)
+      setAttachmentPreview(url)
+      return () => URL.revokeObjectURL(url)
+    }
+    setAttachmentPreview(null)
+    return undefined
+  }, [attachment])
+
   const sendMessage = async () => {
-    if (!composer.trim() || !activePhone) return
+    if (!activePhone) return
+    if (sending) return
+    const trimmed = composer.trim()
+    if (!trimmed && !attachment) {
+      setToast('Digite uma mensagem ou selecione um anexo.')
+      return
+    }
+    if (attachmentError && !attachment && !trimmed) {
+      setToast(attachmentError)
+      return
+    }
     setSending(true)
     try {
+      let attachmentPayload: {
+        data: string
+        mimeType?: string | null
+        fileName?: string | null
+        kind?: 'image' | 'audio' | 'video' | 'document'
+      } | null = null
+
+      if (attachment) {
+        const base64 = await fileToBase64(attachment)
+        attachmentPayload = {
+          data: base64,
+          mimeType: attachment.type || null,
+          fileName: attachment.name || null,
+          kind: inferAttachmentKind(attachment),
+        }
+      }
+
       const resp = await fetch('/api/atendimento/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phones: [activePhone],
-          message: composer,
+          message: trimmed || undefined,
           force: true,
           template: 'reply',
+          attachment: attachmentPayload ?? undefined,
         }),
       })
       const data = await resp.json()
       if (!resp.ok) throw new Error(data.message || 'Erro ao enviar')
       setComposer('')
+      setAttachment(null)
+      setAttachmentError(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
       await loadMessages(activePhone)
       await loadConversas()
       setToast('Mensagem enviada')
@@ -177,6 +328,25 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     } finally {
       setSending(false)
     }
+  }
+
+  const handleAttachmentChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null
+    if (!file) {
+      setAttachment(null)
+      setAttachmentError(null)
+      return
+    }
+    const sizeMb = file.size / (1024 * 1024)
+    if (sizeMb > MAX_ATTACHMENT_SIZE_MB) {
+      setAttachment(null)
+      setAttachmentError(
+        `O anexo tem ${formatBytes(file.size)}. Limite atual: ${MAX_ATTACHMENT_SIZE_MB} MB.`
+      )
+      return
+    }
+    setAttachment(file)
+    setAttachmentError(null)
   }
 
   return (
@@ -315,7 +485,8 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                           : 'bg-white text-slate-700 ring-1 ring-slate-200/70'
                       }`}
                     >
-                      <p className="whitespace-pre-line leading-snug">{m.body}</p>
+                      {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
+                      {renderMedia(m.media)}
                       <p className="mt-1 text-[11px] text-slate-500">
                         {new Date(m.created_at).toLocaleString('pt-BR')}
                       </p>
@@ -329,12 +500,63 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     placeholder="Digite sua resposta..."
                     value={composer}
                     onChange={(e) => setComposer(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault()
+                        sendMessage()
+                      }
+                    }}
                   />
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>Enter para enviar • Shift+Enter para nova linha</span>
+                  {attachment && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/70">
+                      <div className="flex items-center gap-2">
+                        {attachmentPreview ? (
+                          <img
+                            src={attachmentPreview}
+                            alt={attachment.name}
+                            className="h-10 w-10 rounded-lg object-cover ring-1 ring-slate-200/70"
+                          />
+                        ) : (
+                          <span className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-500 ring-1 ring-slate-200/70">
+                            Anexo
+                          </span>
+                        )}
+                        <span className="font-semibold text-slate-700">{attachment.name}</span>
+                        <span className="text-slate-500">{formatBytes(attachment.size)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs text-red-600 hover:text-red-700"
+                        onClick={() => {
+                          setAttachment(null)
+                          setAttachmentError(null)
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = ''
+                          }
+                        }}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  )}
+                  {attachmentError && <p className="text-xs text-red-600">{attachmentError}</p>}
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50">
+                        Anexar
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                          onChange={handleAttachmentChange}
+                        />
+                      </label>
+                      <span>Enter para enviar • Shift+Enter para nova linha</span>
+                    </div>
                     <button
                       onClick={sendMessage}
-                      disabled={sending || !composer.trim()}
+                      disabled={sending || (!composer.trim() && !attachment)}
                       className="btn-primary px-5 py-2 text-sm font-semibold"
                     >
                       {sending ? 'Enviando...' : 'Enviar'}

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
-import { normalizePhoneToBR, sendText } from '../../../../lib/zapi'
+import { normalizePhoneToBR, sendAudio, sendDocument, sendImage, sendText, sendVideo } from '../../../../lib/zapi'
 import { resolveOwnerId } from '../../../../lib/tenant'
-import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
+import { logError, logInfo, resolveRequestId } from '../../../../lib/logger'
 
 type BodyPayload = {
   phones?: string[]
@@ -11,9 +11,59 @@ type BodyPayload = {
   name?: string | null
   template?: string | null
   force?: boolean
+  attachment?: {
+    data: string
+    mimeType?: string | null
+    fileName?: string | null
+    kind?: 'image' | 'audio' | 'video' | 'document' | 'auto'
+  }
 }
 
 type SendResult = { phone: string; status: 'sent' | 'failed' | 'skipped'; error?: string }
+
+const inferAttachmentKind = (mimeType?: string | null, fileName?: string | null) => {
+  if (mimeType) {
+    if (mimeType.startsWith('image/')) return 'image'
+    if (mimeType.startsWith('audio/')) return 'audio'
+    if (mimeType.startsWith('video/')) return 'video'
+  }
+  const ext = fileName?.split('.').pop()?.toLowerCase()
+  if (ext && ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return 'image'
+  if (ext && ['mp3', 'wav', 'ogg', 'opus', 'm4a'].includes(ext)) return 'audio'
+  if (ext && ['mp4', 'mov', 'webm', 'mkv'].includes(ext)) return 'video'
+  return 'document'
+}
+
+const inferDocumentExtension = (fileName?: string | null, mimeType?: string | null) => {
+  const ext = fileName?.split('.').pop()?.toLowerCase()
+  if (ext) return ext
+
+  const map: Record<string, string> = {
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'text/plain': 'txt',
+    'application/zip': 'zip',
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+  }
+  if (mimeType && map[mimeType]) return map[mimeType]
+  return 'bin'
+}
+
+const buildAttachmentFallback = (kind: string, fileName?: string | null) => {
+  if (kind === 'image') return '[imagem]'
+  if (kind === 'audio') return '[áudio]'
+  if (kind === 'video') return '[vídeo]'
+  if (kind === 'document') {
+    const label = fileName ? `: ${fileName}` : ''
+    return `[documento${label}]`
+  }
+  return '[anexo]'
+}
 
 export const runtime = 'nodejs'
 export const revalidate = 0
@@ -28,7 +78,14 @@ export async function POST(req: NextRequest) {
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
   const db = user ? supabaseServer : supabaseAdmin
 
-  const { phones = [], message, name, template, force }: BodyPayload = await req.json().catch(() => ({}))
+  const {
+    phones = [],
+    message,
+    name,
+    template,
+    force,
+    attachment,
+  }: BodyPayload = await req.json().catch(() => ({}))
   const templateId = template?.trim() || 'supercotacao_demo'
   const defaultMessage = `Olá, tudo bem? 😊
 
@@ -37,11 +94,15 @@ Me chamo Ítalo e sou do Super Cotação.
 Vi seu estabelecimento no Google Maps e acredito que o Super Cotação pode te ajudar a economizar nas compras, comparando preços de fornecedores pelo WhatsApp.
 
 Posso te explicar rapidinho como funciona?`
-  const trimmedMessage = message?.trim() || defaultMessage
+  const rawMessage = message?.trim() || ''
+  const hasAttachment = Boolean(attachment?.data)
+  const trimmedMessage = !rawMessage && !hasAttachment && templateId === 'supercotacao_demo'
+    ? defaultMessage
+    : rawMessage
 
-  if (!Array.isArray(phones) || phones.length === 0 || !trimmedMessage) {
+  if (!Array.isArray(phones) || phones.length === 0 || (!trimmedMessage && !hasAttachment)) {
     return NextResponse.json(
-      { message: 'Envie um array de telefones e uma mensagem.' },
+      { message: 'Envie um array de telefones e uma mensagem ou anexo.' },
       { status: 400 }
     )
   }
@@ -90,15 +151,54 @@ Posso te explicar rapidinho como funciona?`
         continue
       }
 
-      const resp = await sendText(phone, trimmedMessage)
+      let resp: { messageId?: string } | null = null
+      let media: Record<string, any> | null = null
+      let storedBody = trimmedMessage
+
+      if (hasAttachment) {
+        const kind =
+          attachment?.kind && attachment.kind !== 'auto'
+            ? attachment.kind
+            : inferAttachmentKind(attachment?.mimeType, attachment?.fileName)
+        const caption = trimmedMessage || null
+        const fallbackBody = buildAttachmentFallback(kind, attachment?.fileName)
+        const rawData = attachment?.data?.trim()
+        const base64 = rawData ? rawData.split(',').pop() : ''
+
+        if (!base64) {
+          throw new Error('Anexo inválido (base64 ausente).')
+        }
+
+        if (kind === 'image') {
+          resp = await sendImage(phone, base64, caption)
+        } else if (kind === 'audio') {
+          resp = await sendAudio(phone, base64)
+        } else if (kind === 'video') {
+          resp = await sendVideo(phone, base64, caption)
+        } else {
+          const extension = inferDocumentExtension(attachment?.fileName, attachment?.mimeType)
+          resp = await sendDocument(phone, base64, extension, attachment?.fileName)
+        }
+
+        media = {
+          type: kind,
+          mimeType: attachment?.mimeType ?? null,
+          fileName: attachment?.fileName ?? null,
+          caption,
+        }
+        storedBody = trimmedMessage || fallbackBody
+      } else {
+        resp = await sendText(phone, trimmedMessage)
+      }
 
       await db.from('messages').insert({
         owner_id: ownerId,
         contact_id: contactId,
         direction: 'out',
-        body: trimmedMessage,
+        body: storedBody,
         status: 'sent',
-        provider_message_id: resp.messageId ?? null,
+        provider_message_id: resp?.messageId ?? null,
+        media,
       })
 
       await db
