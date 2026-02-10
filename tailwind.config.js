@@ -13,17 +13,21 @@ module.exports = {
       colors: {
         brand: '#38bdf8',
         accent: '#f97316',
-        surface: '#0b1224',
-        'surface-2': '#111a2f',
+        surface: '#f8fafc',
+        'surface-2': '#eef2f7',
       },
       boxShadow: {
         glow: '0 18px 50px rgba(56, 189, 248, 0.25)',
       },
       backgroundImage: {
         'radial-dots':
-          'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)',
+          'radial-gradient(circle at 1px 1px, rgba(15,23,42,0.08) 1px, transparent 0)',
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+    require('@tailwindcss/container-queries'),
+  ],
 }

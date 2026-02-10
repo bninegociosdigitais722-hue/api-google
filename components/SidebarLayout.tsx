@@ -25,12 +25,12 @@ export default function SidebarLayout({ title, description, children, navItems }
   const items = navItems ?? appNav
 
   return (
-    <div className="min-h-screen bg-surface text-slate-50">
+    <div className="min-h-screen bg-surface text-slate-900">
       <div className="mx-auto flex w-full gap-6 px-4 py-6 sm:px-6 lg:px-10">
-        <aside className="sticky top-4 hidden h-[92vh] w-64 flex-shrink-0 flex-col rounded-3xl bg-white/5 p-5 shadow-xl ring-1 ring-white/5 lg:flex">
+        <aside className="sticky top-4 hidden h-[92vh] w-64 flex-shrink-0 flex-col rounded-3xl bg-white/80 p-5 shadow-xl ring-1 ring-slate-200/70 backdrop-blur lg:flex">
           <div className="mb-6 space-y-1">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Radar Local</p>
-            <h1 className="text-xl font-semibold text-white">Painel</h1>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Radar Local</p>
+            <h1 className="text-xl font-semibold text-slate-900">Painel</h1>
           </div>
           <nav className="space-y-1">
             {items.map((item) => {
@@ -41,13 +41,13 @@ export default function SidebarLayout({ title, description, children, navItems }
                   href={item.href}
                   className={`block rounded-xl px-3 py-2 text-sm font-semibold transition ${
                     active
-                      ? 'bg-gradient-to-r from-brand/25 to-accent/25 text-white ring-1 ring-white/10'
-                      : 'text-slate-200 hover:bg-white/5'
+                      ? 'bg-gradient-to-r from-brand/15 to-accent/15 text-slate-900 ring-1 ring-brand/20'
+                      : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   {item.label}
                   {item.badge && (
-                    <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-slate-300">
+                    <span className="ml-2 rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] text-slate-600">
                       {item.badge}
                     </span>
                   )}
@@ -58,10 +58,10 @@ export default function SidebarLayout({ title, description, children, navItems }
         </aside>
 
         <main className="flex-1 space-y-4 lg:space-y-6">
-          <header className="space-y-2 rounded-3xl bg-white/5 p-5 shadow-xl ring-1 ring-white/5">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Seção</p>
-            <h2 className="text-2xl font-semibold text-white sm:text-3xl">{title}</h2>
-            {description && <p className="max-w-3xl text-sm text-slate-300">{description}</p>}
+          <header className="space-y-2 rounded-3xl bg-white/80 p-5 shadow-xl ring-1 ring-slate-200/70 backdrop-blur">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Seção</p>
+            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">{title}</h2>
+            {description && <p className="max-w-3xl text-sm text-slate-600">{description}</p>}
           </header>
           {children}
         </main>

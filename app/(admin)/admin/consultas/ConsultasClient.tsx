@@ -109,18 +109,18 @@ export default function ConsultasClient({
 
   const renderEstadoVazio = () => (
     <div className="glass-panel rounded-2xl p-8 text-center shadow-glow">
-      <p className="text-lg text-slate-200">
+      <p className="text-lg text-slate-700">
         Digite um tipo de comércio e uma localização para encontrar as melhores opções perto de você.
       </p>
-      <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm text-slate-300">
-        <span className="rounded-full bg-white/5 px-3 py-1">Ex.: açougue em Curitiba</span>
-        <span className="rounded-full bg-white/5 px-3 py-1">Ex.: supermercado 01001-000</span>
+      <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm text-slate-500">
+        <span className="rounded-full bg-slate-100 px-3 py-1">Ex.: açougue em Curitiba</span>
+        <span className="rounded-full bg-slate-100 px-3 py-1">Ex.: supermercado 01001-000</span>
       </div>
     </div>
   )
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-surface text-slate-50">
+    <div className="relative min-h-screen overflow-x-hidden bg-surface text-slate-900">
       <Head>
         <title>Radar Local | Consultas</title>
         <meta
@@ -140,11 +140,11 @@ export default function ConsultasClient({
         <section className="space-y-5">
           <form
             onSubmit={handleSubmit}
-            className="glass-panel grid gap-3 rounded-3xl border border-white/5 p-5 shadow-xl sm:p-6 lg:grid-cols-[1.1fr_1.1fr_auto]"
+            className="glass-panel grid gap-3 rounded-3xl border border-slate-200/70 p-5 shadow-xl sm:p-6 lg:grid-cols-[1.1fr_1.1fr_auto]"
           >
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm text-slate-300">
-                <span className="font-semibold text-slate-200">Tipo de estabelecimento</span>
+              <div className="flex items-center justify-between text-sm text-slate-600">
+                <span className="font-semibold text-slate-700">Tipo de estabelecimento</span>
                 <div className="flex flex-wrap gap-2">
                   {sugestoes.map((item) => (
                     <button
@@ -154,7 +154,7 @@ export default function ConsultasClient({
                       className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         tipo === item
                           ? 'bg-brand/20 text-brand ring-1 ring-brand/40'
-                          : 'bg-white/5 text-slate-200 hover:bg-white/10'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
                       {item}
@@ -172,9 +172,9 @@ export default function ConsultasClient({
             </div>
 
             <div className="space-y-3">
-              <label className="flex items-center justify-between text-sm text-slate-300" htmlFor="localizacao">
-                <span className="font-semibold text-slate-200">Localização</span>
-                <span className="text-xs text-slate-400">bairro, cidade ou CEP</span>
+              <label className="flex items-center justify-between text-sm text-slate-600" htmlFor="localizacao">
+                <span className="font-semibold text-slate-700">Localização</span>
+                <span className="text-xs text-slate-500">bairro, cidade ou CEP</span>
               </label>
               <input
                 id="localizacao"
@@ -197,30 +197,30 @@ export default function ConsultasClient({
             </div>
           </form>
 
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
             <label className="inline-flex items-center gap-2">
               <input
                 type="checkbox"
-                className="h-4 w-4 cursor-pointer rounded border-white/30 bg-white/10 text-brand focus:ring-brand"
+                className="h-4 w-4 cursor-pointer rounded border-slate-300 bg-white text-brand focus:ring-brand"
                 checked={somenteWhatsapp}
                 onChange={(e) => setSomenteWhatsapp(e.target.checked)}
               />
               Somente com WhatsApp
             </label>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-500">
               Filtra apenas os estabelecimentos cujo telefone está ativo no WhatsApp via Z-API.
             </span>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Painel</p>
-              <h2 className="text-2xl font-semibold text-slate-50">Resultados</h2>
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Painel</p>
+              <h2 className="text-2xl font-semibold text-slate-900">Resultados</h2>
             </div>
             {resultados.length > 0 && (
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm text-slate-100 transition hover:bg-white/20"
+                className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm text-slate-700 ring-1 ring-slate-200/70 transition hover:bg-slate-50"
                 onClick={() => {
                   const header = ['nome', 'endereco', 'telefone']
                   const rows = resultados.map((r) => [
@@ -245,10 +245,10 @@ export default function ConsultasClient({
               </button>
             )}
             {totalCount !== null && (
-              <div className="text-sm text-slate-400">Total: {totalCount}</div>
+              <div className="text-sm text-slate-500">Total: {totalCount}</div>
             )}
             {loading && (
-              <div className="flex items-center gap-2 text-sm text-slate-300">
+              <div className="flex items-center gap-2 text-sm text-slate-600">
                 <span className="h-2 w-2 animate-ping rounded-full bg-brand" />
                 <span>Buscando estabelecimentos...</span>
               </div>
@@ -256,7 +256,7 @@ export default function ConsultasClient({
           </div>
 
           {erro && (
-            <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {erro}
             </div>
           )}
@@ -269,10 +269,10 @@ export default function ConsultasClient({
                 {visiveis.map((item) => (
                   <article
                     key={item.id}
-                className="glass-panel group relative flex h-full flex-col rounded-3xl border border-white/5 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
+                className="glass-panel group relative flex h-full flex-col rounded-3xl border border-slate-200/70 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
               >
                 {isSent(item.telefone) && (
-                  <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold text-emerald-100 ring-1 ring-emerald-500/40">
+                  <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
                     ENVIADO
                   </span>
                 )}
@@ -292,7 +292,7 @@ export default function ConsultasClient({
                     >
                       ✕
                     </button>
-                    <div className="overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/5">
+                    <div className="overflow-hidden rounded-2xl bg-slate-50 ring-1 ring-slate-200/70">
                       {item.fotoUrl ? (
                         <img
                           src={item.fotoUrl}
@@ -301,7 +301,7 @@ export default function ConsultasClient({
                           loading="lazy"
                         />
                       ) : (
-                        <div className="flex h-[180px] items-center justify-center text-xs text-slate-400">
+                        <div className="flex h-[180px] items-center justify-center text-xs text-slate-500">
                           Sem foto
                         </div>
                       )}
@@ -310,10 +310,10 @@ export default function ConsultasClient({
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">
+                        <h3 className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
                               {item.nome}
                             </h3>
-                            <p className="text-xs text-slate-300 leading-snug line-clamp-2">
+                            <p className="text-xs text-slate-600 leading-snug line-clamp-2">
                               {item.endereco}
                             </p>
                           </div>
@@ -324,20 +324,20 @@ export default function ConsultasClient({
                             </span>
                           )}
                         </div>
-                        <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-slate-200">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-700">
                           <span className="text-brand">☎</span>
                           <span className="line-clamp-1">{item.telefone ?? 'Telefone não informado'}</span>
                           {item.temWhatsapp && (
-                            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
-                              <span className="text-emerald-100">WhatsApp</span>
+                            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                              <span className="text-emerald-700">WhatsApp</span>
                             </span>
                           )}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[12px] text-slate-300">
+                      <div className="flex items-center justify-between text-[12px] text-slate-600">
                         <span className="line-clamp-1">Abra no Google Maps para rotas e avaliações</span>
                         <a
-                          className="rounded-full bg-white/10 px-3 py-1.5 text-brand transition hover:bg-white/20 whitespace-nowrap"
+                          className="rounded-full bg-white px-3 py-1.5 text-brand ring-1 ring-slate-200/70 transition hover:bg-slate-50 whitespace-nowrap"
                           href={item.mapsUrl}
                           target="_blank"
                           rel="noreferrer"
@@ -385,8 +385,8 @@ export default function ConsultasClient({
                             }}
                             className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
                               isSent(item.telefone)
-                                ? 'bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-500/30'
-                                : 'bg-white/10 text-white ring-1 ring-white/10 hover:bg-white/20'
+                                ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                                : 'bg-white text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50'
                             }`}
                           >
                             {isSent(item.telefone) ? 'Enviado' : sendingPhone === item.telefone ? 'Enviando...' : 'Disparar convite'}
@@ -424,11 +424,11 @@ export default function ConsultasClient({
                                   )
                                 } catch (err) {
                                   setErro((err as Error)?.message || 'Erro ao reenviar')
-                                } finally {
-                                  setSendingPhone(null)
-                                }
-                              }}
-                              className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15 hover:bg-white/20"
+                              } finally {
+                                setSendingPhone(null)
+                              }
+                            }}
+                              className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
                             >
                               {sendingPhone === item.telefone ? 'Reenviando...' : 'Reenviar'}
                             </button>

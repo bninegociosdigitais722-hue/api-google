@@ -17,18 +17,18 @@ export default function DashboardPage() {
         {cards.map((card) => (
           <div
             key={card.label}
-            className="rounded-3xl bg-white/5 p-4 shadow-lg ring-1 ring-white/5"
+            className="rounded-3xl bg-white/90 p-4 shadow-lg ring-1 ring-slate-200/70"
           >
-            <p className="text-sm text-slate-400">{card.label}</p>
-            <p className="mt-2 text-3xl font-semibold text-white">{card.value}</p>
-            <p className="text-xs text-slate-400">{card.hint}</p>
+            <p className="text-sm text-slate-500">{card.label}</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">{card.value}</p>
+            <p className="text-xs text-slate-500">{card.hint}</p>
           </div>
         ))}
       </section>
 
-      <section className="mt-4 rounded-3xl bg-white/5 p-5 shadow-lg ring-1 ring-white/5">
-        <h3 className="text-lg font-semibold text-white">Próximos gráficos</h3>
-        <p className="mt-2 text-sm text-slate-300">
+      <section className="mt-4 rounded-3xl bg-white/90 p-5 shadow-lg ring-1 ring-slate-200/70">
+        <h3 className="text-lg font-semibold text-slate-900">Próximos gráficos</h3>
+        <p className="mt-2 text-sm text-slate-600">
           Espaço reservado para evolução diária de consultas, disparos e respostas.
         </p>
       </section>

@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
@@ -13,10 +13,10 @@ body {
   margin: 0;
   font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   background:
-    radial-gradient(1600px 1600px at 15% 15%, rgba(56, 189, 248, 0.12), transparent 40%),
-    radial-gradient(1400px 1400px at 85% 20%, rgba(249, 115, 22, 0.12), transparent 45%),
-    linear-gradient(135deg, #0f172a 0%, #0b1224 50%, #0f172a 100%);
-  color: #e2e8f0;
+    radial-gradient(1200px 1200px at 12% 12%, rgba(56, 189, 248, 0.18), transparent 45%),
+    radial-gradient(900px 900px at 85% 10%, rgba(249, 115, 22, 0.16), transparent 40%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #0f172a;
 }
 
 a {
@@ -24,9 +24,10 @@ a {
 }
 
 .glass-panel {
-  background: rgba(17, 26, 47, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(16px);
 }
 
 ::-webkit-scrollbar {
@@ -40,16 +41,16 @@ a {
 
 ::selection {
   background: #f97316;
-  color: #0b1224;
+  color: #0f172a;
 }
 
 @layer components {
   .input-field {
-    @apply w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 placeholder:text-slate-400 transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40;
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-brand to-accent px-6 py-3 font-semibold text-slate-900 shadow-glow transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-accent/20 active:translate-y-0;
+    @apply inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-brand to-accent px-6 py-3 font-semibold text-white shadow-glow transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-accent/25 active:translate-y-0;
   }
 
   .line-clamp-3 {

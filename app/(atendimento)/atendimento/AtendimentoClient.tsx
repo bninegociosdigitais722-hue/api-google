@@ -180,24 +180,24 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   }
 
   return (
-    <div className="min-h-screen bg-surface text-slate-50">
+    <div className="min-h-screen bg-surface text-slate-900">
       <SidebarLayout
         title="Atendimento"
         description="Conversas via WhatsApp (Z-API). Dispare, acompanhe e responda."
       >
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
           {/* Lista de conversas */}
-          <div className="flex h-[78vh] flex-col rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
+          <div className="flex h-[78vh] flex-col rounded-2xl bg-white/90 p-3 ring-1 ring-slate-200/70 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Conversas</p>
-                <h3 className="text-lg font-semibold text-white">Últimos contatos</h3>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Conversas</p>
+                <h3 className="text-lg font-semibold text-slate-900">Últimos contatos</h3>
               </div>
               <div className="flex items-center gap-2">
                 {polling && <span className="h-2 w-2 animate-ping rounded-full bg-brand" />}
                 <button
                   onClick={loadConversas}
-                  className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-100 hover:bg-white/20"
+                  className="rounded-full bg-white px-3 py-1 text-xs text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
                 >
                   Atualizar
                 </button>
@@ -205,7 +205,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
             </div>
             <div className="relative flex-1 overflow-y-auto">
               {!loadingConversas && conversas.length === 0 && (
-                <p className="p-3 text-sm text-slate-400">Nenhuma conversa ainda.</p>
+                <p className="p-3 text-sm text-slate-500">Nenhuma conversa ainda.</p>
               )}
               {conversas.map((c) => (
                 <button
@@ -213,22 +213,22 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   onClick={() => setActivePhone(c.phone)}
                   className={`mb-2 w-full rounded-xl px-3 py-3 text-left transition ${
                     activePhone === c.phone
-                      ? 'bg-gradient-to-r from-brand/15 to-accent/15 ring-1 ring-white/15'
-                      : 'hover:bg-white/5'
+                      ? 'bg-gradient-to-r from-brand/15 to-accent/15 ring-1 ring-brand/20'
+                      : 'hover:bg-slate-100'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold text-white">{c.name || 'Contato sem nome'}</p>
-                      <p className="text-xs text-slate-400">{formatPhone(c.phone)}</p>
+                      <p className="text-sm font-semibold text-slate-900">{c.name || 'Contato sem nome'}</p>
+                      <p className="text-xs text-slate-500">{formatPhone(c.phone)}</p>
                       {c.last_message && (
-                        <p className="line-clamp-2 text-xs text-slate-300">
+                        <p className="line-clamp-2 text-xs text-slate-600">
                           {c.last_message.direction === 'out' ? 'Você: ' : ''} {c.last_message.body}
                         </p>
                       )}
                     </div>
                     {c.is_whatsapp && (
-                      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                         WhatsApp
                       </span>
                     )}
@@ -236,7 +236,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   <div className="mt-2 flex justify-end">
                     <button
                       type="button"
-                      className="text-[11px] text-red-300 hover:text-red-200"
+                      className="text-[11px] text-red-600 hover:text-red-700"
                       onClick={async (e) => {
                         e.stopPropagation()
                         const ok = window.confirm('Excluir conversa e contato?')
@@ -267,16 +267,16 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           </div>
 
           {/* Chat */}
-          <div className="flex h-[78vh] flex-col rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+          <div className="flex h-[78vh] flex-col rounded-2xl bg-white/90 p-4 ring-1 ring-slate-200/70 shadow-sm">
             {activeConversa ? (
               <>
-                <header className="mb-3 flex items-center justify-between border-b border-white/5 pb-3">
+                <header className="mb-3 flex items-center justify-between border-b border-slate-200/70 pb-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Atendimento</p>
-                    <h2 className="text-xl font-semibold text-white">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Atendimento</p>
+                    <h2 className="text-xl font-semibold text-slate-900">
                       {activeConversa.name || 'Contato sem nome'}
                     </h2>
-                    <p className="text-sm text-slate-400">{formatPhone(activeConversa.phone)}</p>
+                    <p className="text-sm text-slate-500">{formatPhone(activeConversa.phone)}</p>
                   </div>
                   <button
                     onClick={async () => {
@@ -296,41 +296,41 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         setToast((err as Error)?.message || 'Falha ao limpar conversa')
                       }
                     }}
-                    className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-100 hover:bg-white/20"
+                    className="rounded-full bg-white px-3 py-1 text-xs text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
                   >
                     Limpar conversa
                   </button>
                 </header>
 
-                <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-white/5 p-4">
+                <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-slate-50 p-4">
                   {!loadingMessages && messages.length === 0 && (
-                    <p className="text-sm text-slate-400">Nenhuma mensagem ainda.</p>
+                    <p className="text-sm text-slate-500">Nenhuma mensagem ainda.</p>
                   )}
                   {messages.map((m) => (
                     <div
                       key={m.id}
                       className={`max-w-[72%] rounded-2xl px-3 py-2 text-sm ${
                         m.direction === 'out'
-                          ? 'ml-auto bg-gradient-to-r from-brand/30 to-accent/30 text-white'
-                          : 'bg-white/10 text-slate-100'
+                          ? 'ml-auto bg-gradient-to-r from-brand/20 to-accent/20 text-slate-900 ring-1 ring-brand/20'
+                          : 'bg-white text-slate-700 ring-1 ring-slate-200/70'
                       }`}
                     >
                       <p className="whitespace-pre-line leading-snug">{m.body}</p>
-                      <p className="mt-1 text-[11px] text-slate-300">
+                      <p className="mt-1 text-[11px] text-slate-500">
                         {new Date(m.created_at).toLocaleString('pt-BR')}
                       </p>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-white/5 p-3">
+                <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-white p-3 ring-1 ring-slate-200/70">
                   <textarea
                     className="input-field min-h-[90px] w-full resize-none text-sm"
                     placeholder="Digite sua resposta..."
                     value={composer}
                     onChange={(e) => setComposer(e.target.value)}
                   />
-                  <div className="flex items-center justify-between text-xs text-slate-400">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
                     <span>Enter para enviar • Shift+Enter para nova linha</span>
                     <button
                       onClick={sendMessage}
@@ -343,7 +343,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 </div>
               </>
             ) : (
-              <div className="flex h-full items-center justify-center text-slate-400">
+              <div className="flex h-full items-center justify-center text-slate-500">
                 Selecione uma conversa na esquerda.
               </div>
             )}
@@ -352,9 +352,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       </SidebarLayout>
 
       {toast && (
-        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-white/10 px-4 py-2 text-sm text-slate-100 shadow-xl backdrop-blur">
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-white/90 px-4 py-2 text-sm text-slate-700 shadow-xl ring-1 ring-slate-200/70 backdrop-blur">
           {toast}
-          <button className="ml-3 text-xs text-slate-300" onClick={() => setToast(null)}>
+          <button className="ml-3 text-xs text-slate-500" onClick={() => setToast(null)}>
             Fechar
           </button>
         </div>

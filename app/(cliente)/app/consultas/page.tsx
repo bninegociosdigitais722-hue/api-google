@@ -51,31 +51,35 @@ export default async function ConsultasClientePage() {
       navItems={navItems}
     >
       <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-3xl bg-white/5 p-5 shadow-xl ring-1 ring-white/5">
+        <div className="rounded-3xl bg-white/90 p-5 shadow-xl ring-1 ring-slate-200/70">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Contatos</p>
-              <h3 className="text-lg font-semibold text-white">Últimas consultas</h3>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Contatos</p>
+              <h3 className="text-lg font-semibold text-slate-900">Últimas consultas</h3>
             </div>
-            <span className="text-sm text-slate-300">{contacts.length} itens</span>
+            <span className="text-sm text-slate-500">{contacts.length} itens</span>
           </div>
-          <div className="mt-3 divide-y divide-white/5">
+          <div className="mt-3 divide-y divide-slate-200/70">
             {contacts.length === 0 && (
-              <p className="text-sm text-slate-400">Nenhum contato encontrado para este tenant.</p>
+              <p className="text-sm text-slate-500">Nenhum contato encontrado para este tenant.</p>
             )}
             {contacts.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-3 py-3">
                 <div>
-                  <p className="text-sm font-semibold text-white">{c.name || 'Contato sem nome'}</p>
-                  <p className="text-xs text-slate-400">{c.phone}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-semibold text-slate-900">{c.name || 'Contato sem nome'}</p>
+                  <p className="text-xs text-slate-500">{c.phone}</p>
+                  <p className="text-xs text-slate-500">
                     Última mensagem:{' '}
                     {c.last_message_at
                       ? new Date(c.last_message_at).toLocaleString('pt-BR')
                       : '—'}
                   </p>
                 </div>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-emerald-200">
+                <span
+                  className={`rounded-full px-3 py-1 text-[11px] ${
+                    c.is_whatsapp ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
                   {c.is_whatsapp ? 'WhatsApp' : 'Contato'}
                 </span>
               </div>
@@ -83,17 +87,17 @@ export default async function ConsultasClientePage() {
           </div>
         </div>
 
-        <div className="rounded-3xl bg-white/5 p-5 shadow-xl ring-1 ring-white/5">
+        <div className="rounded-3xl bg-white/90 p-5 shadow-xl ring-1 ring-slate-200/70">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Mensagens</p>
-              <h3 className="text-lg font-semibold text-white">Últimas interações</h3>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Mensagens</p>
+              <h3 className="text-lg font-semibold text-slate-900">Últimas interações</h3>
             </div>
-            <span className="text-sm text-slate-300">{messages.length} itens</span>
+            <span className="text-sm text-slate-500">{messages.length} itens</span>
           </div>
           <div className="mt-3 space-y-3">
             {messages.length === 0 && (
-              <p className="text-sm text-slate-400">Nenhuma mensagem registrada.</p>
+              <p className="text-sm text-slate-500">Nenhuma mensagem registrada.</p>
             )}
             {messages.map((m) => {
               const contact = contactById.get(m.contact_id)
@@ -102,15 +106,15 @@ export default async function ConsultasClientePage() {
                   key={m.id}
                   className={`rounded-2xl px-3 py-2 text-sm ${
                     m.direction === 'out'
-                      ? 'bg-gradient-to-r from-brand/20 to-accent/20 text-white'
-                      : 'bg-white/5 text-slate-100'
+                      ? 'bg-gradient-to-r from-brand/15 to-accent/15 text-slate-900 ring-1 ring-brand/20'
+                      : 'bg-white text-slate-700 ring-1 ring-slate-200/70'
                   }`}
                 >
-                  <div className="flex items-center justify-between text-[12px] text-slate-300">
+                  <div className="flex items-center justify-between text-[12px] text-slate-500">
                     <span>{contact?.name || 'Contato'}</span>
                     <span>{new Date(m.created_at).toLocaleString('pt-BR')}</span>
                   </div>
-                  <p className="mt-1 whitespace-pre-line leading-snug text-slate-100">{m.body}</p>
+                  <p className="mt-1 whitespace-pre-line leading-snug text-slate-700">{m.body}</p>
                 </div>
               )
             })}
