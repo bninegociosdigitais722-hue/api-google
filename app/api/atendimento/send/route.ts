@@ -54,6 +54,44 @@ const inferDocumentExtension = (fileName?: string | null, mimeType?: string | nu
   return 'bin'
 }
 
+const inferMimeType = (fileName?: string | null, mimeType?: string | null) => {
+  if (mimeType) return mimeType
+  const ext = fileName?.split('.').pop()?.toLowerCase()
+  if (!ext) return 'application/octet-stream'
+  const map: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    opus: 'audio/ogg',
+    m4a: 'audio/mp4',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    webm: 'video/webm',
+    mkv: 'video/x-matroska',
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    txt: 'text/plain',
+    zip: 'application/zip',
+  }
+  return map[ext] ?? 'application/octet-stream'
+}
+
+const ensureDataUri = (rawData: string, fileName?: string | null, mimeType?: string | null) => {
+  const trimmed = rawData.trim()
+  if (trimmed.startsWith('data:')) return trimmed
+  const base64 = trimmed.includes(',') ? trimmed.split(',').pop() || '' : trimmed
+  const safeMime = inferMimeType(fileName, mimeType)
+  return `data:${safeMime};base64,${base64}`
+}
+
 const buildAttachmentFallback = (kind: string, fileName?: string | null) => {
   if (kind === 'image') return '[imagem]'
   if (kind === 'audio') return '[áudio]'
@@ -164,22 +202,22 @@ Posso te explicar rapidinho como funciona?`
             : inferAttachmentKind(attachment?.mimeType, attachment?.fileName)
         const caption = trimmedMessage || null
         const fallbackBody = buildAttachmentFallback(kind, attachment?.fileName)
-        const rawData = attachment?.data?.trim()
-        const base64 = rawData ? rawData.split(',').pop() : ''
+        const rawData = attachment?.data?.trim() || ''
+        const dataUri = ensureDataUri(rawData, attachment?.fileName, attachment?.mimeType)
 
-        if (!base64) {
+        if (!rawData) {
           throw new Error('Anexo inválido (base64 ausente).')
         }
 
         if (kind === 'image') {
-          resp = await sendImage(phone, base64, caption)
+          resp = await sendImage(phone, dataUri, caption)
         } else if (kind === 'audio') {
-          resp = await sendAudio(phone, base64)
+          resp = await sendAudio(phone, dataUri)
         } else if (kind === 'video') {
-          resp = await sendVideo(phone, base64, caption)
+          resp = await sendVideo(phone, dataUri, caption)
         } else {
           const extension = inferDocumentExtension(attachment?.fileName, attachment?.mimeType)
-          resp = await sendDocument(phone, base64, extension, attachment?.fileName)
+          resp = await sendDocument(phone, dataUri, extension, attachment?.fileName)
         }
 
         media = {
