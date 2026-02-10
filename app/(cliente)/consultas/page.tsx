@@ -1,8 +1,8 @@
-import ConsultasClient from './ConsultasClient'
+import ConsultasClient from '../../(admin)/admin/consultas/ConsultasClient'
 import { headers } from 'next/headers'
-import { resolveOwnerId } from '../../../../lib/tenant'
-import { createSupabaseServerClient } from '../../../../lib/supabase/server'
-import supabaseAdmin from '../../../../lib/supabase/admin'
+import { resolveOwnerId } from '../../../lib/tenant'
+import { createSupabaseServerClient } from '../../../lib/supabase/server'
+import supabaseAdmin from '../../../lib/supabase/admin'
 
 export const metadata = {
   title: 'Consultas | Radar Local',
@@ -62,7 +62,7 @@ export default async function ConsultasPage() {
       sentMap={sentMap}
       total={typeof total === 'number' ? total : null}
       error={hasError?.message}
-      apiPrefix="/api/admin"
+      apiPrefix="/api"
     />
   )
 }

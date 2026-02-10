@@ -13,16 +13,23 @@ type SidebarLayoutProps = {
   navItems?: NavItem[]
 }
 
-const defaultNav: NavItem[] = [
+const adminNav: NavItem[] = [
   { href: '/admin/dashboard', label: 'Dashboard' },
   { href: '/admin/consultas', label: 'Consultas' },
   { href: '/atendimento', label: 'Atendimento' },
   { href: '/admin/configuracoes', label: 'Configurações', badge: 'em breve' },
 ]
 
+const appNav: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/consultas', label: 'Consultas' },
+  { href: '/atendimento', label: 'Atendimento' },
+  { href: '/configuracoes', label: 'Configurações', badge: 'em breve' },
+]
+
 export default function SidebarLayout({ title, description, children, navItems }: SidebarLayoutProps) {
   const pathname = usePathname()
-  const items = navItems ?? defaultNav
+  const items = navItems ?? (pathname.startsWith('/admin') ? adminNav : appNav)
 
   return (
     <div className="min-h-screen bg-surface text-slate-50">

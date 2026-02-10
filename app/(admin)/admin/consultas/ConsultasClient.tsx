@@ -28,6 +28,7 @@ type Props = {
   total?: number | null
   error?: string | null
   sentMap?: Record<string, { template: string | null; lastOutboundAt: string | null }>
+  apiPrefix?: string
 }
 
 export default function ConsultasClient({
@@ -35,6 +36,7 @@ export default function ConsultasClient({
   total = null,
   error: initialError = null,
   sentMap = {},
+  apiPrefix = '/api/admin',
 }: Props) {
   const [tipo, setTipo] = useState('supermercado')
   const [localizacao, setLocalizacao] = useState('')
@@ -83,7 +85,7 @@ export default function ConsultasClient({
       if (somenteWhatsapp) {
         query.set('onlyWhatsapp', 'true')
       }
-      const response = await fetch(`/api/admin/busca?${query.toString()}`)
+      const response = await fetch(`${apiPrefix}/busca?${query.toString()}`)
       const data: ApiResponse = await response.json()
 
       if (!response.ok) {
@@ -352,17 +354,13 @@ export default function ConsultasClient({
                               if (!item.telefone) return
                               setSendingPhone(item.telefone)
                               try {
-                                const resp = await fetch('/api/admin/atendimento/send', {
+                                const resp = await fetch(`${apiPrefix}/atendimento/send`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({
                                     phones: [item.telefone],
                                     name: item.nome,
                                     template: 'supercotacao_demo',
-                                    message: `Oi! Tudo bem? 😊 Sou o Ítalo.
-Vi seu estabelecimento no Google Maps e queria te convidar para testar o *Super Cotação* — sistema que ajuda empresas a economizar nas compras comparando preços de fornecedores pelo WhatsApp.
-Acesse: www.supercotacao.com.br
-São 7 dias grátis, sem compromisso. Posso te explicar rapidinho como funciona?`,
                                   }),
                                 })
                                 const data = await resp.json()
@@ -402,7 +400,7 @@ São 7 dias grátis, sem compromisso. Posso te explicar rapidinho como funciona?
                                 if (!item.telefone) return
                                 setSendingPhone(item.telefone)
                                 try {
-                                  const resp = await fetch('/api/admin/atendimento/send', {
+                                  const resp = await fetch(`${apiPrefix}/atendimento/send`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({

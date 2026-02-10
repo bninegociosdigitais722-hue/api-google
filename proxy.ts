@@ -22,14 +22,20 @@ export default async function proxy(req: NextRequest) {
     }
   }
 
-  // Redireciona raiz para prefixo padrão conforme host (ex.: admin → /admin/dashboard; atendimento → /atendimento)
+  // Redireciona raiz para prefixo padrão conforme host (ex.: admin → /admin/dashboard; app → /dashboard)
   if (rule && pathname === '/') {
     const hasAdmin = rule.prefixes.includes('/admin')
+    const hasDashboard = rule.prefixes.includes('/dashboard')
     const hasAtendimento = rule.prefixes.includes('/atendimento')
     const hasApp = rule.prefixes.includes('/app')
     if (hasAdmin) {
       const url = req.nextUrl.clone()
       url.pathname = '/admin/dashboard'
+      return NextResponse.redirect(url)
+    }
+    if (hasDashboard) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/dashboard'
       return NextResponse.redirect(url)
     }
     if (hasAtendimento) {
