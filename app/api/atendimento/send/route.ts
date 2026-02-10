@@ -222,6 +222,7 @@ Posso te explicar rapidinho como funciona?`
 
         media = {
           type: kind,
+          url: dataUri,
           mimeType: attachment?.mimeType ?? null,
           fileName: attachment?.fileName ?? null,
           caption,
