@@ -119,18 +119,20 @@ Posso te explicar rapidinho como funciona?`
   }
 
   const ensureContact = async (phone: string) => {
+    const trimmedName = typeof name === 'string' ? name.trim() : ''
+    const payload: Record<string, any> = {
+      owner_id: ownerId,
+      phone,
+      is_whatsapp: true,
+      last_message_at: new Date().toISOString(),
+    }
+    if (trimmedName) {
+      payload.name = trimmedName
+    }
+
     const { data, error } = await db
       .from('contacts')
-      .upsert(
-        {
-          owner_id: ownerId,
-          phone,
-          name: name ?? null,
-          is_whatsapp: true,
-          last_message_at: new Date().toISOString(),
-        },
-        { onConflict: 'owner_id,phone' }
-      )
+      .upsert(payload, { onConflict: 'owner_id,phone' })
       .select('id, last_outbound_template')
       .single()
 

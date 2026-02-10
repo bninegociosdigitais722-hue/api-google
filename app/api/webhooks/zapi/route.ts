@@ -14,6 +14,8 @@ type ZapiIncoming = {
   from?: string
   remoteJid?: string
   pushName?: string
+  senderName?: string
+  chatName?: string
   sender?: any
   participant?: string
   chatId?: string
@@ -314,10 +316,16 @@ export async function POST(req: NextRequest) {
   const body = extractBody(payload)
   const media = extractMedia(payload)
   const cleanBody = body.trim()
-  const contactName =
-    payload.pushName ||
-    (typeof payload.sender === 'object' ? payload.sender?.name || payload.sender?.pushName : null) ||
-    null
+  const contactName = (() => {
+    const candidate =
+      payload.senderName ||
+      payload.chatName ||
+      payload.pushName ||
+      (typeof payload.sender === 'object' ? payload.sender?.name || payload.sender?.pushName : null)
+    if (typeof candidate !== 'string') return null
+    const trimmed = candidate.trim()
+    return trimmed || null
+  })()
 
   if (!cleanBody) {
     logWarn('zapi webhook ignored empty body', {
@@ -350,18 +358,19 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: contact, error: contactError } = await withRetry(async () => {
+    const payload = {
+      owner_id: ownerId,
+      phone,
+      is_whatsapp: true,
+      last_message_at: new Date().toISOString(),
+    } as Record<string, any>
+    if (contactName) {
+      payload.name = contactName
+    }
+
     const resp = await supabaseAdmin
       .from('contacts')
-      .upsert(
-        {
-          owner_id: ownerId,
-          phone,
-          name: contactName ?? undefined,
-          is_whatsapp: true,
-          last_message_at: new Date().toISOString(),
-        },
-        { onConflict: 'owner_id,phone' }
-      )
+      .upsert(payload, { onConflict: 'owner_id,phone' })
       .select('id')
       .single()
     return resp

@@ -166,11 +166,17 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   const [toast, setToast] = useState<string | null>(null)
   const [polling, setPolling] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const activePhoneRef = useRef<string | null>(activePhone)
+  const messagesCacheRef = useRef<Record<string, Message[]>>({ ...initialMessagesByPhone })
 
   const activeConversa = useMemo(
     () => conversas.find((c) => c.phone === activePhone) ?? null,
     [conversas, activePhone]
   )
+
+  useEffect(() => {
+    activePhoneRef.current = activePhone
+  }, [activePhone])
 
   const loadConversas = async () => {
     setPolling(true)
@@ -190,13 +196,22 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
   const loadMessages = async (phone: string | null) => {
     if (!phone) return
+    const requestPhone = phone
     setLoadingMessages(true)
     try {
       const resp = await fetch(`/api/atendimento/messages?phone=${encodeURIComponent(phone)}`)
-      const data = await resp.json()
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        if (activePhoneRef.current === requestPhone) {
+          setToast(data.message || 'Não foi possível carregar as mensagens.')
+        }
+        return
+      }
+      if (activePhoneRef.current !== requestPhone) return
       const cleaned = (data.messages ?? []).filter(
         (m: Message) => (m.body && m.body.trim()) || m.media
       )
+      messagesCacheRef.current[requestPhone] = cleaned
       setMessages(cleaned)
     } finally {
       setLoadingMessages(false)
@@ -224,12 +239,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
   useEffect(() => {
     if (activePhone) {
-      const preload = initialMessagesByPhone[activePhone]
-      if (preload) {
-        setMessages(preload)
-      } else {
-        loadMessages(activePhone)
-      }
+      const cached = messagesCacheRef.current[activePhone]
+      setMessages(cached ?? [])
+      loadMessages(activePhone)
     }
   }, [activePhone]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -419,6 +431,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                           const data = await resp.json()
                           if (!resp.ok) throw new Error(data.message || 'Erro ao excluir conversa')
                           setConversas((prev) => prev.filter((item) => item.phone !== c.phone))
+                          delete messagesCacheRef.current[c.phone]
                           if (activePhone === c.phone) {
                             setActivePhone(null)
                             setMessages([])
@@ -461,6 +474,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         const data = await resp.json()
                         if (!resp.ok) throw new Error(data.message || 'Erro ao limpar conversa')
                         setMessages([])
+                        if (activeConversa?.phone) {
+                          messagesCacheRef.current[activeConversa.phone] = []
+                        }
                         await loadConversas()
                       } catch (err) {
                         setToast((err as Error)?.message || 'Falha ao limpar conversa')
