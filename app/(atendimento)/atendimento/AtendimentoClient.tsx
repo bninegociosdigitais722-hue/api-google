@@ -86,21 +86,30 @@ const inferAttachmentKind = (file: File) => {
   return 'document'
 }
 
-const renderMedia = (media?: MessageMedia | null) => {
+const renderMedia = (
+  media: MessageMedia | null | undefined,
+  onOpenImage?: (src: string, label: string) => void
+) => {
   if (!media) return null
   const label = media.fileName || media.mimeType || media.name || 'Anexo'
 
   if (media.type === 'image' && (media.url || media.thumbnailUrl)) {
-    const href = media.url || media.thumbnailUrl || ''
+    const src = media.url || media.thumbnailUrl || ''
     return (
-      <a href={href} target="_blank" rel="noreferrer" className="mt-2 block">
+      <button
+        type="button"
+        onClick={() => {
+          if (src && onOpenImage) onOpenImage(src, label)
+        }}
+        className="mt-2 block w-full text-left"
+      >
         <img
-          src={href}
+          src={src}
           alt={label}
-          className="max-h-64 w-full rounded-xl bg-white object-contain ring-1 ring-slate-200/70"
+          className="max-h-64 w-full cursor-zoom-in rounded-xl bg-white object-contain ring-1 ring-slate-200/70"
           loading="lazy"
         />
-      </a>
+      </button>
     )
   }
   if (media.type === 'video' && media.url) {
@@ -168,6 +177,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   const [sending, setSending] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [polling, setPolling] = useState(false)
+  const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const activePhoneRef = useRef<string | null>(activePhone)
   const messagesCacheRef = useRef<Record<string, Message[]>>({ ...initialMessagesByPhone })
@@ -257,6 +267,17 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     setAttachmentPreview(null)
     return undefined
   }, [attachment])
+
+  useEffect(() => {
+    if (!lightbox) return
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setLightbox(null)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightbox])
 
   const sendMessage = async () => {
     if (!activePhone) return
@@ -505,7 +526,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                       }`}
                     >
                       {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
-                      {renderMedia(m.media)}
+                      {renderMedia(m.media, (src, label) => setLightbox({ src, label }))}
                       <p className="mt-1 text-[11px] text-slate-500">
                         {new Date(m.created_at).toLocaleString('pt-BR')}
                       </p>
@@ -591,6 +612,33 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           </div>
         </div>
       </SidebarLayout>
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <div
+            className="relative w-full max-w-5xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setLightbox(null)}
+              className="absolute -top-4 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-slate-700 shadow-lg"
+              aria-label="Fechar imagem"
+            >
+              ×
+            </button>
+            <img
+              src={lightbox.src}
+              alt={lightbox.label}
+              className="max-h-[90vh] w-full rounded-2xl bg-white object-contain ring-1 ring-slate-200/70"
+            />
+            <p className="mt-2 text-center text-xs text-white/80">{lightbox.label}</p>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-white/90 px-4 py-2 text-sm text-slate-700 shadow-xl ring-1 ring-slate-200/70 backdrop-blur">
