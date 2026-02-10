@@ -51,7 +51,7 @@ export default async function ConsultasClientePage() {
       navItems={navItems}
     >
       <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-3xl bg-white/90 p-5 shadow-xl ring-1 ring-slate-200/70">
+        <div className="rounded-3xl bg-surface-2/90 p-5 shadow-xl ring-1 ring-slate-200/70">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Contatos</p>
@@ -87,7 +87,7 @@ export default async function ConsultasClientePage() {
           </div>
         </div>
 
-        <div className="rounded-3xl bg-white/90 p-5 shadow-xl ring-1 ring-slate-200/70">
+        <div className="rounded-3xl bg-surface-2/90 p-5 shadow-xl ring-1 ring-slate-200/70">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Mensagens</p>

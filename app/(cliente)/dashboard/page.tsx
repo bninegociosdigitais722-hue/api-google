@@ -17,7 +17,7 @@ export default function DashboardPage() {
         {cards.map((card) => (
           <div
             key={card.label}
-            className="rounded-3xl bg-white/90 p-4 shadow-lg ring-1 ring-slate-200/70"
+            className="rounded-3xl bg-surface-2/90 p-4 shadow-lg ring-1 ring-slate-200/70"
           >
             <p className="text-sm text-slate-500">{card.label}</p>
             <p className="mt-2 text-3xl font-semibold text-slate-900">{card.value}</p>
@@ -26,7 +26,7 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      <section className="mt-4 rounded-3xl bg-white/90 p-5 shadow-lg ring-1 ring-slate-200/70">
+      <section className="mt-4 rounded-3xl bg-surface-2/90 p-5 shadow-lg ring-1 ring-slate-200/70">
         <h3 className="text-lg font-semibold text-slate-900">Próximos gráficos</h3>
         <p className="mt-2 text-sm text-slate-600">
           Espaço reservado para evolução diária de consultas, disparos e respostas.

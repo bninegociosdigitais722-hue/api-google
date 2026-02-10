@@ -5,7 +5,7 @@ export const metadata = {
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-6 text-slate-900">
-      <div className="w-full max-w-md space-y-4 rounded-3xl bg-white/90 p-8 shadow-xl ring-1 ring-slate-200/70">
+      <div className="w-full max-w-md space-y-4 rounded-3xl bg-surface-2/90 p-8 shadow-xl ring-1 ring-slate-200/70">
         <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Autenticação</p>
         <h1 className="text-2xl font-semibold text-slate-900">Entrar</h1>
         <p className="text-sm text-slate-600">

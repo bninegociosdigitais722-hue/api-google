@@ -39,7 +39,7 @@ export default async function SuporteClientePage() {
       navItems={navItems}
     >
       <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-3xl bg-white/90 p-5 shadow-xl ring-1 ring-slate-200/70">
+        <div className="rounded-3xl bg-surface-2/90 p-5 shadow-xl ring-1 ring-slate-200/70">
           <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Ajuda</p>
           <h3 className="text-lg font-semibold text-slate-900">Como podemos ajudar?</h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-600">
@@ -56,7 +56,7 @@ export default async function SuporteClientePage() {
           </p>
         </div>
 
-        <div className="rounded-3xl bg-white/90 p-5 shadow-xl ring-1 ring-slate-200/70">
+        <div className="rounded-3xl bg-surface-2/90 p-5 shadow-xl ring-1 ring-slate-200/70">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Mensagens</p>

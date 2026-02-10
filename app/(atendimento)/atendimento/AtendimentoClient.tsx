@@ -393,7 +393,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       >
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
           {/* Lista de conversas */}
-          <div className="flex h-[78vh] flex-col rounded-2xl bg-white/90 p-3 ring-1 ring-slate-200/70 shadow-sm">
+          <div className="flex h-[78vh] flex-col rounded-2xl bg-surface-2/90 p-3 ring-1 ring-slate-200/70 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Conversas</p>
@@ -474,7 +474,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           </div>
 
           {/* Chat */}
-          <div className="flex h-[78vh] flex-col rounded-2xl bg-white/90 p-4 ring-1 ring-slate-200/70 shadow-sm">
+          <div className="flex h-[78vh] flex-col rounded-2xl bg-surface-2/90 p-4 ring-1 ring-slate-200/70 shadow-sm">
             {activeConversa ? (
               <>
                 <header className="mb-3 flex items-center justify-between border-b border-slate-200/70 pb-3">
@@ -641,7 +641,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       )}
 
       {toast && (
-        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-white/90 px-4 py-2 text-sm text-slate-700 shadow-xl ring-1 ring-slate-200/70 backdrop-blur">
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-surface-2/90 px-4 py-2 text-sm text-slate-700 shadow-xl ring-1 ring-slate-200/70 backdrop-blur">
           {toast}
           <button className="ml-3 text-xs text-slate-500" onClick={() => setToast(null)}>
             Fechar

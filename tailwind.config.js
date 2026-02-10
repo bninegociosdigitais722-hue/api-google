@@ -13,8 +13,9 @@ module.exports = {
       colors: {
         brand: '#38bdf8',
         accent: '#f97316',
-        surface: '#f8fafc',
-        'surface-2': '#eef2f7',
+        surface: '#f5f0e8',
+        'surface-2': '#fff3ea',
+        'surface-3': '#efe5d8',
       },
       boxShadow: {
         glow: '0 18px 50px rgba(56, 189, 248, 0.25)',

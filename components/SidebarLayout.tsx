@@ -27,7 +27,7 @@ export default function SidebarLayout({ title, description, children, navItems }
   return (
     <div className="min-h-screen bg-surface text-slate-900">
       <div className="mx-auto flex w-full gap-6 px-4 py-6 sm:px-6 lg:px-10">
-        <aside className="sticky top-4 hidden h-[92vh] w-64 flex-shrink-0 flex-col rounded-3xl bg-white/80 p-5 shadow-xl ring-1 ring-slate-200/70 backdrop-blur lg:flex">
+        <aside className="sticky top-4 hidden h-[92vh] w-64 flex-shrink-0 flex-col rounded-3xl bg-surface-2/80 p-5 shadow-xl ring-1 ring-slate-200/70 backdrop-blur lg:flex">
           <div className="mb-6 space-y-1">
             <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Radar Local</p>
             <h1 className="text-xl font-semibold text-slate-900">Painel</h1>
@@ -58,11 +58,11 @@ export default function SidebarLayout({ title, description, children, navItems }
         </aside>
 
         <main className="flex-1 space-y-4 lg:space-y-6">
-          <header className="space-y-2 rounded-3xl bg-white/80 p-5 shadow-xl ring-1 ring-slate-200/70 backdrop-blur">
+          <div className="space-y-1 border-b border-slate-200/70 pb-3">
             <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Seção</p>
             <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">{title}</h2>
             {description && <p className="max-w-3xl text-sm text-slate-600">{description}</p>}
-          </header>
+          </div>
           {children}
         </main>
       </div>

@@ -17,7 +17,7 @@ export default function AppHomePage() {
       description="Acesse consultas, acompanhamento de pedidos e suporte em um único lugar."
       navItems={navItems}
     >
-      <div className="rounded-3xl bg-white/90 p-6 text-slate-700 shadow-lg ring-1 ring-slate-200/70">
+      <div className="rounded-3xl bg-surface-2/90 p-6 text-slate-700 shadow-lg ring-1 ring-slate-200/70">
         <p className="text-sm">
           Bem-vindo ao portal do cliente. Aqui você vai acompanhar consultas, mensagens e suporte.
           As seções adicionais serão habilitadas conforme o onboarding.
