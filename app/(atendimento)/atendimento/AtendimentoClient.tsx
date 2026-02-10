@@ -91,13 +91,16 @@ const renderMedia = (media?: MessageMedia | null) => {
   const label = media.fileName || media.mimeType || media.name || 'Anexo'
 
   if (media.type === 'image' && (media.url || media.thumbnailUrl)) {
+    const href = media.url || media.thumbnailUrl || ''
     return (
-      <img
-        src={media.url || media.thumbnailUrl || ''}
-        alt={label}
-        className="mt-2 max-h-56 w-full rounded-xl object-cover ring-1 ring-slate-200/70"
-        loading="lazy"
-      />
+      <a href={href} target="_blank" rel="noreferrer" className="mt-2 block">
+        <img
+          src={href}
+          alt={label}
+          className="max-h-64 w-full rounded-xl bg-white object-contain ring-1 ring-slate-200/70"
+          loading="lazy"
+        />
+      </a>
     )
   }
   if (media.type === 'video' && media.url) {
