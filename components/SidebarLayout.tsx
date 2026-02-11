@@ -26,6 +26,12 @@ export default function SidebarLayout() {
     console.log('[SidebarLayout] mounted')
   }, [])
 
+  const markNavClick = () => {
+    if (process.env.NEXT_PUBLIC_PERF_LOG === '1') {
+      ;(window as any).__navClick = performance.now()
+    }
+  }
+
   return (
     <aside className="sticky top-6 hidden h-[92vh] w-72 flex-shrink-0 flex-col justify-between rounded-3xl border border-sidebar-border/70 bg-sidebar/80 p-5 shadow-soft backdrop-blur lg:flex">
       <div className="space-y-6">
@@ -57,12 +63,13 @@ export default function SidebarLayout() {
                   const active = isActiveRoute(pathname, item.href)
                   const Icon = item.icon ?? LayoutDashboard
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition',
-                        active
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={markNavClick}
+                        className={cn(
+                          'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition',
+                          active
                           ? 'bg-primary/10 text-foreground shadow-sm ring-1 ring-primary/25'
                           : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                       )}

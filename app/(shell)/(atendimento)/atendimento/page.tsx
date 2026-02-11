@@ -1,5 +1,7 @@
 import { headers } from 'next/headers'
 import AtendimentoClient, { Conversa, Message } from './AtendimentoClient'
+import { resolveRequestId } from '@/lib/logger'
+import { createServerPerf } from '@/lib/perf'
 import { resolveOwnerId } from '@/lib/tenant'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import supabaseAdmin from '@/lib/supabase/admin'
@@ -13,8 +15,15 @@ export const revalidate = 0
 export default async function AtendimentoPage() {
   const headersList = await headers()
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
+  const perf = createServerPerf('atendimento.page', {
+    requestId: resolveRequestId(headersList),
+    path: '/atendimento',
+    host,
+  })
+  perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
+  perf.mark('session')
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
@@ -55,6 +64,7 @@ export default async function AtendimentoPage() {
       messagesPromise,
       prefetchPromise,
     ])
+    perf.mark('queries')
 
     const contactIds = contacts?.map((c) => c.id) ?? []
     let messagesMap = new Map<number, Conversa['last_message']>()
@@ -82,6 +92,8 @@ export default async function AtendimentoPage() {
     if (firstPhone && prefetchRes?.data) {
       messagesByPhone[firstPhone] = prefetchRes.data as Message[]
     }
+    perf.mark('render')
+    perf.done()
   } catch (err) {
     console.error('atendimento server fetch error', err)
   }

@@ -2,6 +2,7 @@ import '../styles/globals.css'
 import { ReactNode } from 'react'
 import { Toaster } from 'sonner'
 
+import PerfClient from '@/components/PerfClient'
 import ThemeProvider from '@/components/ThemeProvider'
 
 export const metadata = {
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="pt-BR" suppressHydrationWarning>
       <body className="font-sans">
         <ThemeProvider>
+          <PerfClient />
           {children}
           <Toaster
             richColors

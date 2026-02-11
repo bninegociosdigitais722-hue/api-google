@@ -12,6 +12,12 @@ export default function MobileNav() {
   const pathname = usePathname()
   const groups = resolveNavGroups(pathname)
 
+  const markNavClick = () => {
+    if (process.env.NEXT_PUBLIC_PERF_LOG === '1') {
+      ;(window as any).__navClick = performance.now()
+    }
+  }
+
   return (
     <>
       <div className="flex items-center justify-between lg:hidden">
@@ -37,6 +43,7 @@ export default function MobileNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={markNavClick}
                 className={cn(
                   'flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition',
                   active

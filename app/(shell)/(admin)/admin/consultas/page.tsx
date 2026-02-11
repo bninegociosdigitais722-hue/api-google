@@ -1,5 +1,7 @@
 import ConsultasClient from './ConsultasClient'
 import { headers } from 'next/headers'
+import { resolveRequestId } from '@/lib/logger'
+import { createServerPerf } from '@/lib/perf'
 import { resolveOwnerId } from '@/lib/tenant'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import supabaseAdmin from '@/lib/supabase/admin'
@@ -11,8 +13,15 @@ export const metadata = {
 export default async function ConsultasPage() {
   const headersList = await headers()
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
+  const perf = createServerPerf('consultas.admin', {
+    requestId: resolveRequestId(headersList),
+    path: '/admin/consultas',
+    host,
+  })
+  perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
+  perf.mark('session')
   const user = sessionData.session?.user ?? null
 
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
@@ -27,6 +36,7 @@ export default async function ConsultasPage() {
     .eq('owner_id', ownerId)
     .order('last_message_at', { ascending: false })
     .limit(200)
+  perf.mark('queries')
 
   const contatos = results ?? []
   const hasError = error
@@ -42,6 +52,8 @@ export default async function ConsultasPage() {
         },
       ])
   )
+  perf.mark('render')
+  perf.done()
 
   return (
     <ConsultasClient

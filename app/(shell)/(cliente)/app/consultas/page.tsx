@@ -1,5 +1,7 @@
 import { headers } from 'next/headers'
 import PageHeader from '@/components/PageHeader'
+import { resolveRequestId } from '@/lib/logger'
+import { createServerPerf } from '@/lib/perf'
 import supabaseAdmin from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveOwnerId } from '@/lib/tenant'
@@ -11,8 +13,15 @@ export const metadata = {
 export default async function ConsultasClientePage() {
   const headersList = await headers()
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
+  const perf = createServerPerf('portal.consultas', {
+    requestId: resolveRequestId(headersList),
+    path: '/app/consultas',
+    host,
+  })
+  perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
+  perf.mark('session')
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
@@ -32,10 +41,13 @@ export default async function ConsultasClientePage() {
       .order('created_at', { ascending: false })
       .limit(30),
   ])
+  perf.mark('queries')
 
   const contacts = contactsRes.data ?? []
   const messages = messagesRes.data ?? []
   const contactById = new Map(contacts.map((c) => [c.id, c]))
+  perf.mark('render')
+  perf.done()
 
   return (
     <div className="space-y-6">
