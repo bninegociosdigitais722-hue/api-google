@@ -1,7 +1,24 @@
 "use client"
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
-import SidebarLayout from '../../../components/SidebarLayout'
+import { toast } from 'sonner'
+import {
+  AlertTriangle,
+  Image as ImageIcon,
+  MessageCircle,
+  Paperclip,
+  RefreshCw,
+  Send,
+  Trash2,
+  X,
+} from 'lucide-react'
+
+import SidebarLayout from '@/components/SidebarLayout'
+import EmptyState from '@/components/EmptyState'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 export type Conversa = {
   id: number
@@ -106,14 +123,14 @@ const renderMedia = (
         <img
           src={src}
           alt={label}
-          className="max-h-64 w-full cursor-zoom-in rounded-xl bg-white object-contain ring-1 ring-slate-200/70"
+          className="max-h-64 w-full cursor-zoom-in rounded-xl bg-white object-contain ring-1 ring-border/70"
           loading="lazy"
         />
       </button>
     )
   }
   if (media.type === 'video' && media.url) {
-    return <video className="mt-2 w-full rounded-xl ring-1 ring-slate-200/70" controls src={media.url} />
+    return <video className="mt-2 w-full rounded-xl ring-1 ring-border/70" controls src={media.url} />
   }
   if (media.type === 'audio' && media.url) {
     return <audio className="mt-2 w-full" controls src={media.url} />
@@ -121,7 +138,7 @@ const renderMedia = (
   if (media.type === 'document' && media.url) {
     return (
       <a
-        className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
+        className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border/70 hover:bg-muted/40"
         href={media.url}
         target="_blank"
         rel="noreferrer"
@@ -132,7 +149,7 @@ const renderMedia = (
   }
   if (media.type === 'location' && (media.latitude || media.longitude)) {
     return (
-      <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/70">
+      <div className="mt-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground ring-1 ring-border/70">
         Localização: {media.latitude}, {media.longitude}
       </div>
     )
@@ -140,7 +157,7 @@ const renderMedia = (
   if (media.url) {
     return (
       <a
-        className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
+        className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border/70 hover:bg-muted/40"
         href={media.url}
         target="_blank"
         rel="noreferrer"
@@ -150,7 +167,7 @@ const renderMedia = (
     )
   }
   return (
-    <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/70">
+    <div className="mt-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground ring-1 ring-border/70">
       Anexo: {label}
     </div>
   )
@@ -170,12 +187,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   const [attachment, setAttachment] = useState<File | null>(null)
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null)
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
-  const [blastPhones, setBlastPhones] = useState('')
-  const [blastMessage, setBlastMessage] = useState(
-    'Olá! Encontrei seu contato e queria te mostrar o radar de comércios perto de você. Posso te enviar mais detalhes?'
-  )
   const [sending, setSending] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
   const [polling, setPolling] = useState(false)
   const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -201,6 +213,8 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       if (!activePhone && data.conversas?.[0]?.phone) {
         setActivePhone(data.conversas[0].phone)
       }
+    } catch (err) {
+      toast.error('Não foi possível atualizar as conversas.')
     } finally {
       setLoadingConversas(false)
       setPolling(false)
@@ -216,7 +230,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) {
         if (activePhoneRef.current === requestPhone) {
-          setToast(data.message || 'Não foi possível carregar as mensagens.')
+          toast.error(data.message || 'Não foi possível carregar as mensagens.')
         }
         return
       }
@@ -232,7 +246,6 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   }
 
   useEffect(() => {
-    // se não veio inicial, busca
     if (!conversas.length) {
       loadConversas()
     }
@@ -284,11 +297,11 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     if (sending) return
     const trimmed = composer.trim()
     if (!trimmed && !attachment) {
-      setToast('Digite uma mensagem ou selecione um anexo.')
+      toast.error('Digite uma mensagem ou selecione um anexo.')
       return
     }
     if (attachmentError && !attachment && !trimmed) {
-      setToast(attachmentError)
+      toast.error(attachmentError)
       return
     }
     setSending(true)
@@ -331,36 +344,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       }
       await loadMessages(activePhone)
       await loadConversas()
-      setToast('Mensagem enviada')
+      toast.success('Mensagem enviada.')
     } catch (err) {
-      setToast((err as Error)?.message || 'Falha ao enviar')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  const sendBlast = async () => {
-    const list = blastPhones
-      .split(/\n|,|;|\s+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    if (!list.length || !blastMessage.trim()) {
-      setToast('Informe pelo menos um telefone e a mensagem.')
-      return
-    }
-    setSending(true)
-    try {
-      const resp = await fetch('/api/atendimento/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phones: list, message: blastMessage }),
-      })
-      const data = await resp.json()
-      if (!resp.ok) throw new Error(data.message || 'Erro no disparo')
-      setToast('Disparo iniciado. Consulte as conversas ao lado.')
-      await loadConversas()
-    } catch (err) {
-      setToast((err as Error)?.message || 'Falha no disparo')
+      toast.error((err as Error)?.message || 'Falha ao enviar')
     } finally {
       setSending(false)
     }
@@ -386,246 +372,261 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   }
 
   return (
-    <div className="min-h-screen bg-surface text-slate-900">
-      <SidebarLayout
-        title="Atendimento"
-        description="Conversas via WhatsApp (Z-API). Dispare, acompanhe e responda."
-      >
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          {/* Lista de conversas */}
-          <div className="flex h-[78vh] flex-col rounded-2xl bg-surface-2/90 p-3 ring-1 ring-slate-200/70 shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Conversas</p>
-                <h3 className="text-lg font-semibold text-slate-900">Últimos contatos</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                {polling && <span className="h-2 w-2 animate-ping rounded-full bg-brand" />}
-                <button
-                  onClick={loadConversas}
-                  className="rounded-full bg-white px-3 py-1 text-xs text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
-                >
-                  Atualizar
-                </button>
-              </div>
+    <SidebarLayout
+      title="Atendimento"
+      description="Conversas via WhatsApp (Z-API). Dispare, acompanhe e responda."
+      actions={
+        <Button variant="outline" size="sm" onClick={loadConversas}>
+          <RefreshCw className={cn('h-4 w-4', polling && 'animate-spin')} />
+          Atualizar
+        </Button>
+      }
+    >
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+        <div className="flex h-[78vh] flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Conversas</p>
+              <h3 className="text-lg font-semibold text-foreground">Últimos contatos</h3>
             </div>
-            <div className="relative flex-1 overflow-y-auto">
-              {!loadingConversas && conversas.length === 0 && (
-                <p className="p-3 text-sm text-slate-500">Nenhuma conversa ainda.</p>
-              )}
-              {conversas.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setActivePhone(c.phone)}
-                  className={`mb-2 w-full rounded-xl px-3 py-3 text-left transition ${
-                    activePhone === c.phone
-                      ? 'bg-gradient-to-r from-brand/15 to-accent/15 ring-1 ring-brand/20'
-                      : 'hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-slate-900">{c.name || 'Contato sem nome'}</p>
-                      <p className="text-xs text-slate-500">{formatPhone(c.phone)}</p>
-                      {c.last_message && (
-                        <p className="line-clamp-2 text-xs text-slate-600">
-                          {c.last_message.direction === 'out' ? 'Você: ' : ''} {c.last_message.body}
-                        </p>
-                      )}
-                    </div>
-                    {c.is_whatsapp && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                        WhatsApp
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-2 flex justify-end">
-                    <button
-                      type="button"
-                      className="text-[11px] text-red-600 hover:text-red-700"
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        const ok = window.confirm('Excluir conversa e contato?')
-                        if (!ok) return
-                        try {
-                          const resp = await fetch(
-                            `/api/atendimento/conversas?phone=${encodeURIComponent(c.phone)}`,
-                            { method: 'DELETE' }
-                          )
-                          const data = await resp.json()
-                          if (!resp.ok) throw new Error(data.message || 'Erro ao excluir conversa')
-                          setConversas((prev) => prev.filter((item) => item.phone !== c.phone))
-                          delete messagesCacheRef.current[c.phone]
-                          if (activePhone === c.phone) {
-                            setActivePhone(null)
-                            setMessages([])
-                          }
-                        } catch (err) {
-                          setToast((err as Error)?.message || 'Falha ao excluir conversa')
-                        }
-                      }}
-                    >
-                      Excluir
-                    </button>
-                  </div>
-                </button>
-              ))}
-            </div>
+            {polling && <span className="h-2 w-2 animate-ping rounded-full bg-primary" />}
           </div>
 
-          {/* Chat */}
-          <div className="flex h-[78vh] flex-col rounded-2xl bg-surface-2/90 p-4 ring-1 ring-slate-200/70 shadow-sm">
-            {activeConversa ? (
-              <>
-                <header className="mb-3 flex items-center justify-between border-b border-slate-200/70 pb-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Atendimento</p>
-                    <h2 className="text-xl font-semibold text-slate-900">
-                      {activeConversa.name || 'Contato sem nome'}
-                    </h2>
-                    <p className="text-sm text-slate-500">{formatPhone(activeConversa.phone)}</p>
+          <div className="relative flex-1 overflow-y-auto pr-1">
+            {!loadingConversas && conversas.length === 0 && (
+              <EmptyState
+                icon={MessageCircle}
+                title="Nenhuma conversa ainda"
+                description="Assim que um contato responder, ele aparece nesta lista."
+                className="mt-6"
+              />
+            )}
+            {conversas.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setActivePhone(c.phone)}
+                className={cn(
+                  'mb-2 w-full rounded-2xl border border-transparent px-3 py-3 text-left transition',
+                  activePhone === c.phone
+                    ? 'bg-primary/10 text-foreground shadow-soft ring-1 ring-primary/20'
+                    : 'hover:bg-muted/60'
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">{c.name || 'Contato sem nome'}</p>
+                    <p className="text-xs text-muted-foreground">{formatPhone(c.phone)}</p>
+                    {c.last_message && (
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                        {c.last_message.direction === 'out' ? 'Você: ' : ''}
+                        {c.last_message.body}
+                      </p>
+                    )}
                   </div>
-                  <button
-                    onClick={async () => {
-                      if (!activeConversa?.phone) return
-                      const ok = window.confirm('Tem certeza que deseja limpar a conversa?')
+                  {c.is_whatsapp && <Badge variant="success">WhatsApp</Badge>}
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700"
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      const ok = window.confirm('Excluir conversa e contato?')
                       if (!ok) return
                       try {
                         const resp = await fetch(
-                          `/api/atendimento/messages?phone=${encodeURIComponent(activeConversa.phone)}`,
+                          `/api/atendimento/conversas?phone=${encodeURIComponent(c.phone)}`,
                           { method: 'DELETE' }
                         )
                         const data = await resp.json()
-                        if (!resp.ok) throw new Error(data.message || 'Erro ao limpar conversa')
-                        setMessages([])
-                        if (activeConversa?.phone) {
-                          messagesCacheRef.current[activeConversa.phone] = []
+                        if (!resp.ok) throw new Error(data.message || 'Erro ao excluir conversa')
+                        setConversas((prev) => prev.filter((item) => item.phone !== c.phone))
+                        delete messagesCacheRef.current[c.phone]
+                        if (activePhone === c.phone) {
+                          setActivePhone(null)
+                          setMessages([])
                         }
-                        await loadConversas()
+                        toast.success('Conversa removida.')
                       } catch (err) {
-                        setToast((err as Error)?.message || 'Falha ao limpar conversa')
+                        toast.error((err as Error)?.message || 'Falha ao excluir conversa')
                       }
                     }}
-                    className="rounded-full bg-white px-3 py-1 text-xs text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
                   >
-                    Limpar conversa
-                  </button>
-                </header>
-
-                <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-slate-50 p-4">
-                  {!loadingMessages && messages.length === 0 && (
-                    <p className="text-sm text-slate-500">Nenhuma mensagem ainda.</p>
-                  )}
-                  {messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`max-w-[72%] rounded-2xl px-3 py-2 text-sm ${
-                        m.direction === 'out'
-                          ? 'ml-auto bg-gradient-to-r from-brand/20 to-accent/20 text-slate-900 ring-1 ring-brand/20'
-                          : 'bg-white text-slate-700 ring-1 ring-slate-200/70'
-                      }`}
-                    >
-                      {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
-                      {renderMedia(m.media, (src, label) => setLightbox({ src, label }))}
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        {new Date(m.created_at).toLocaleString('pt-BR')}
-                      </p>
-                    </div>
-                  ))}
+                    <Trash2 className="h-4 w-4" />
+                    Excluir
+                  </Button>
                 </div>
-
-                <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-white p-3 ring-1 ring-slate-200/70">
-                  <textarea
-                    className="input-field min-h-[90px] w-full resize-none text-sm"
-                    placeholder="Digite sua resposta..."
-                    value={composer}
-                    onChange={(e) => setComposer(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                        e.preventDefault()
-                        sendMessage()
-                      }
-                    }}
-                  />
-                  {attachment && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/70">
-                      <div className="flex items-center gap-2">
-                        {attachmentPreview ? (
-                          <img
-                            src={attachmentPreview}
-                            alt={attachment.name}
-                            className="h-10 w-10 rounded-lg object-cover ring-1 ring-slate-200/70"
-                          />
-                        ) : (
-                          <span className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-500 ring-1 ring-slate-200/70">
-                            Anexo
-                          </span>
-                        )}
-                        <span className="font-semibold text-slate-700">{attachment.name}</span>
-                        <span className="text-slate-500">{formatBytes(attachment.size)}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="text-xs text-red-600 hover:text-red-700"
-                        onClick={() => {
-                          setAttachment(null)
-                          setAttachmentError(null)
-                          if (fileInputRef.current) {
-                            fileInputRef.current.value = ''
-                          }
-                        }}
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  )}
-                  {attachmentError && <p className="text-xs text-red-600">{attachmentError}</p>}
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50">
-                        Anexar
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          className="hidden"
-                          accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
-                          onChange={handleAttachmentChange}
-                        />
-                      </label>
-                      <span>Enter para enviar • Shift+Enter para nova linha</span>
-                    </div>
-                    <button
-                      onClick={sendMessage}
-                      disabled={sending || (!composer.trim() && !attachment)}
-                      className="btn-primary px-5 py-2 text-sm font-semibold"
-                    >
-                      {sending ? 'Enviando...' : 'Enviar'}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center text-slate-500">
-                Selecione uma conversa na esquerda.
-              </div>
-            )}
+              </button>
+            ))}
           </div>
         </div>
-      </SidebarLayout>
+
+        <div className="flex h-[78vh] flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
+          {activeConversa ? (
+            <>
+              <header className="mb-3 flex items-center justify-between border-b border-border/60 pb-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Atendimento</p>
+                  <h2 className="text-xl font-semibold text-foreground">
+                    {activeConversa.name || 'Contato sem nome'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">{formatPhone(activeConversa.phone)}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!activeConversa?.phone) return
+                    const ok = window.confirm('Tem certeza que deseja limpar a conversa?')
+                    if (!ok) return
+                    try {
+                      const resp = await fetch(
+                        `/api/atendimento/messages?phone=${encodeURIComponent(activeConversa.phone)}`,
+                        { method: 'DELETE' }
+                      )
+                      const data = await resp.json()
+                      if (!resp.ok) throw new Error(data.message || 'Erro ao limpar conversa')
+                      setMessages([])
+                      if (activeConversa?.phone) {
+                        messagesCacheRef.current[activeConversa.phone] = []
+                      }
+                      await loadConversas()
+                      toast.success('Conversa limpa.')
+                    } catch (err) {
+                      toast.error((err as Error)?.message || 'Falha ao limpar conversa')
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Limpar conversa
+                </Button>
+              </header>
+
+              <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-muted/40 p-4">
+                {!loadingMessages && messages.length === 0 && (
+                  <EmptyState
+                    icon={AlertTriangle}
+                    title="Sem mensagens"
+                    description="Essa conversa ainda não teve mensagens registradas."
+                  />
+                )}
+                {messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={cn(
+                      'max-w-[76%] rounded-2xl px-3 py-2 text-sm shadow-sm',
+                      m.direction === 'out'
+                        ? 'ml-auto bg-primary/10 text-foreground ring-1 ring-primary/20'
+                        : 'bg-card text-muted-foreground ring-1 ring-border/60'
+                    )}
+                  >
+                    {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
+                    {renderMedia(m.media, (src, label) => setLightbox({ src, label }))}
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {new Date(m.created_at).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-border/60 bg-background p-3">
+                <Textarea
+                  className="min-h-[110px] resize-none"
+                  placeholder="Digite sua resposta..."
+                  value={composer}
+                  onChange={(e) => setComposer(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault()
+                      sendMessage()
+                    }
+                  }}
+                />
+                {attachment && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground ring-1 ring-border/70">
+                    <div className="flex items-center gap-2">
+                      {attachmentPreview ? (
+                        <img
+                          src={attachmentPreview}
+                          alt={attachment.name}
+                          className="h-10 w-10 rounded-lg object-cover ring-1 ring-border/70"
+                        />
+                      ) : (
+                        <span className="rounded-full bg-white px-2 py-1 text-[10px] text-muted-foreground ring-1 ring-border/70">
+                          Anexo
+                        </span>
+                      )}
+                      <span className="font-semibold text-foreground">{attachment.name}</span>
+                      <span className="text-muted-foreground">{formatBytes(attachment.size)}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => {
+                        setAttachment(null)
+                        setAttachmentError(null)
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = ''
+                        }
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                      Remover
+                    </Button>
+                  </div>
+                )}
+                {attachmentError && <p className="text-xs text-red-600">{attachmentError}</p>}
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border/70 bg-white px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted/40">
+                      <Paperclip className="h-3 w-3" />
+                      Anexar
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                        onChange={handleAttachmentChange}
+                      />
+                    </label>
+                    <span>Enter para enviar • Shift+Enter para nova linha</span>
+                  </div>
+                  <Button
+                    onClick={sendMessage}
+                    disabled={sending || (!composer.trim() && !attachment)}
+                  >
+                    <Send className="h-4 w-4" />
+                    {sending ? 'Enviando...' : 'Enviar'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <EmptyState
+                icon={ImageIcon}
+                title="Selecione uma conversa"
+                description="Escolha um contato na coluna à esquerda para abrir o histórico."
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       {lightbox && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4"
           onClick={() => setLightbox(null)}
         >
-          <div
-            className="relative w-full max-w-5xl"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="relative w-full max-w-5xl" onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
               onClick={() => setLightbox(null)}
-              className="absolute -top-4 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-slate-700 shadow-lg"
+              className="absolute -top-4 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-muted-foreground shadow-lg"
               aria-label="Fechar imagem"
             >
               ×
@@ -633,21 +634,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
             <img
               src={lightbox.src}
               alt={lightbox.label}
-              className="max-h-[90vh] w-full rounded-2xl bg-white object-contain ring-1 ring-slate-200/70"
+              className="max-h-[90vh] w-full rounded-2xl bg-white object-contain ring-1 ring-border/70"
             />
             <p className="mt-2 text-center text-xs text-white/80">{lightbox.label}</p>
           </div>
         </div>
       )}
-
-      {toast && (
-        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-surface-2/90 px-4 py-2 text-sm text-slate-700 shadow-xl ring-1 ring-slate-200/70 backdrop-blur">
-          {toast}
-          <button className="ml-3 text-xs text-slate-500" onClick={() => setToast(null)}>
-            Fechar
-          </button>
-        </div>
-      )}
-    </div>
+    </SidebarLayout>
   )
 }

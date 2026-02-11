@@ -1,5 +1,8 @@
 import '../styles/globals.css'
 import { ReactNode } from 'react'
+import { Toaster } from 'sonner'
+
+import ThemeProvider from '@/components/ThemeProvider'
 
 export const metadata = {
   title: 'Radar Local',
@@ -8,8 +11,17 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <body>{children}</body>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className="font-sans">
+        <ThemeProvider>
+          {children}
+          <Toaster
+            richColors
+            position="top-right"
+            toastOptions={{ className: 'rounded-2xl border border-border bg-card text-foreground shadow-card' }}
+          />
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

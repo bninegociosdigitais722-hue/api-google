@@ -1,8 +1,27 @@
 "use client"
 
-import Head from 'next/head'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
-import SidebarLayout from '../../../../components/SidebarLayout'
+import { useMemo, useState } from 'react'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
+import {
+  Download,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Search,
+  Send,
+  X,
+} from 'lucide-react'
+
+import SidebarLayout from '@/components/SidebarLayout'
+import EmptyState from '@/components/EmptyState'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 type Resultado = {
   id: string
@@ -23,6 +42,14 @@ type ApiResponse = {
 
 const sugestoes = ['supermercado', 'açougue', 'padaria', 'hortifruti', 'mercearia']
 
+const searchSchema = z.object({
+  tipo: z.string().min(2, 'Informe o tipo de estabelecimento.'),
+  localizacao: z.string().min(2, 'Informe a localização.'),
+  somenteWhatsapp: z.boolean().optional(),
+})
+
+type SearchForm = z.infer<typeof searchSchema>
+
 type Props = {
   initialResults?: Resultado[]
   total?: number | null
@@ -38,17 +65,29 @@ export default function ConsultasClient({
   sentMap = {},
   apiPrefix = '/api/admin',
 }: Props) {
-  const [tipo, setTipo] = useState('supermercado')
-  const [localizacao, setLocalizacao] = useState('')
-  const [somenteWhatsapp, setSomenteWhatsapp] = useState(false)
   const [resultados, setResultados] = useState<Resultado[]>(initialResults)
   const [visiveis, setVisiveis] = useState<Resultado[]>(initialResults.slice(0, 18))
-  const [removidos, setRemovidos] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(initialError)
   const [totalCount, setTotalCount] = useState<number | null>(total)
   const [sendingPhone, setSendingPhone] = useState<string | null>(null)
 
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<SearchForm>({
+    resolver: zodResolver(searchSchema),
+    defaultValues: {
+      tipo: 'supermercado',
+      localizacao: '',
+      somenteWhatsapp: false,
+    },
+  })
+
+  const tipoAtual = watch('tipo')
   const countRestantes = useMemo(() => resultados.length - visiveis.length, [resultados, visiveis])
 
   const normalizePhone = (phone?: string | null) => {
@@ -63,26 +102,21 @@ export default function ConsultasClient({
   const isSent = (phone?: string | null) => {
     const norm = normalizePhone(phone)
     if (!norm) return false
-    return Boolean(sentMap[norm] || visiveis.find((r) => normalizePhone(r.telefone) === norm)?.lastOutboundTemplate)
+    if (sentMap[norm]) return true
+    return Boolean(
+      resultados.find((r) => normalizePhone(r.telefone) === norm)?.lastOutboundTemplate
+    )
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    if (!tipo.trim() || !localizacao.trim()) {
-      setErro('Preencha o tipo de estabelecimento e a localização para buscar.')
-      return
-    }
-
+  const onSubmit = async (values: SearchForm) => {
     setErro(null)
     setLoading(true)
     setResultados([])
     setVisiveis([])
-    setRemovidos(new Set())
 
     try {
-      const query = new URLSearchParams({ tipo, localizacao })
-      if (somenteWhatsapp) {
+      const query = new URLSearchParams({ tipo: values.tipo, localizacao: values.localizacao })
+      if (values.somenteWhatsapp) {
         query.set('onlyWhatsapp', 'true')
       }
       const response = await fetch(`${apiPrefix}/busca?${query.toString()}`)
@@ -99,128 +133,126 @@ export default function ConsultasClient({
       setResultados(enriched)
       setVisiveis(enriched.slice(0, 18))
       setTotalCount(enriched.length)
+      toast.success('Busca concluída com sucesso.')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro inesperado ao buscar.'
       setErro(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
   }
 
-  const renderEstadoVazio = () => (
-    <div className="glass-panel rounded-2xl p-8 text-center shadow-glow">
-      <p className="text-lg text-slate-700">
-        Digite um tipo de comércio e uma localização para encontrar as melhores opções perto de você.
-      </p>
-      <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm text-slate-500">
-        <span className="rounded-full bg-slate-100 px-3 py-1">Ex.: açougue em Curitiba</span>
-        <span className="rounded-full bg-slate-100 px-3 py-1">Ex.: supermercado 01001-000</span>
-      </div>
-    </div>
+  const renderEmptyState = () => (
+    <EmptyState
+      icon={Search}
+      title="Comece sua busca"
+      description="Digite o tipo de comércio e uma localização para encontrar estabelecimentos com contato direto no WhatsApp."
+      action={
+        <>
+          <Badge variant="secondary">Ex.: açougue em Curitiba</Badge>
+          <Badge variant="secondary">Ex.: supermercado 01001-000</Badge>
+        </>
+      }
+    />
   )
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-surface text-slate-900">
-      <Head>
-        <title>Radar Local | Consultas</title>
-        <meta
-          name="description"
-          content="Encontre comércios perto de você, veja telefone, nota, e chame direto no WhatsApp."
-        />
-      </Head>
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-0 h-64 w-64 rounded-full bg-brand/25 blur-3xl" />
-        <div className="absolute bottom-10 right-0 h-64 w-64 rounded-full bg-accent/25 blur-3xl" />
-        <div className="absolute inset-0 bg-radial-dots" />
-      </div>
-      <SidebarLayout
-        title="Consultas"
-        description="Busque comércios, filtre apenas quem tem WhatsApp ativo e abra rotas no Maps."
-      >
-        <section className="space-y-5">
-          <form
-            onSubmit={handleSubmit}
-            className="glass-panel grid gap-3 rounded-3xl border border-slate-200/70 p-5 shadow-xl sm:p-6 lg:grid-cols-[1.1fr_1.1fr_auto]"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm text-slate-600">
-                <span className="font-semibold text-slate-700">Tipo de estabelecimento</span>
-                <div className="flex flex-wrap gap-2">
-                  {sugestoes.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setTipo(item)}
-                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                        tipo === item
-                          ? 'bg-brand/20 text-brand ring-1 ring-brand/40'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
+    <SidebarLayout
+      title="Consultas"
+      description="Busque comércios, filtre apenas quem tem WhatsApp ativo e abra rotas no Maps."
+      actions={
+        <Button variant="outline" size="sm" type="button">
+          <Download className="h-4 w-4" />
+          Exportar últimos resultados
+        </Button>
+      }
+    >
+      <section className="space-y-6">
+        <Card className="border border-border/60 bg-card/80 shadow-card">
+          <CardContent className="space-y-6 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Filtros</p>
+                <h3 className="text-lg font-semibold text-foreground">Nova consulta</h3>
+                <p className="text-sm text-muted-foreground">
+                  Combine tipo de estabelecimento e localização para sugerir novos contatos.
+                </p>
               </div>
-              <input
-                className="input-field h-[52px] text-base"
-                placeholder="açougue, supermercado, padaria"
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value)}
-                name="tipo"
-              />
+              <div className="flex flex-wrap gap-2">
+                {sugestoes.map((item) => (
+                  <Button
+                    key={item}
+                    type="button"
+                    variant={tipoAtual === item ? 'default' : 'soft'}
+                    size="sm"
+                    onClick={() => setValue('tipo', item, { shouldDirty: true, shouldValidate: true })}
+                  >
+                    {item}
+                  </Button>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="flex items-center justify-between text-sm text-slate-600" htmlFor="localizacao">
-                <span className="font-semibold text-slate-700">Localização</span>
-                <span className="text-xs text-slate-500">bairro, cidade ou CEP</span>
+            <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">Tipo de estabelecimento</label>
+                <Input
+                  placeholder="açougue, supermercado, padaria"
+                  {...register('tipo')}
+                  aria-invalid={Boolean(errors.tipo)}
+                />
+                {errors.tipo && <p className="text-xs text-red-600">{errors.tipo.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center justify-between text-sm font-semibold text-foreground">
+                  <span>Localização</span>
+                  <span className="text-xs font-normal text-muted-foreground">bairro, cidade ou CEP</span>
+                </label>
+                <Input
+                  placeholder="Ex.: Pinheiros, São Paulo ou 01310-930"
+                  {...register('localizacao')}
+                  aria-invalid={Boolean(errors.localizacao)}
+                />
+                {errors.localizacao && (
+                  <p className="text-xs text-red-600">{errors.localizacao.message}</p>
+                )}
+              </div>
+              <div className="flex items-end">
+                <Button type="submit" size="lg" className="w-full" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  {loading ? 'Buscando...' : 'Buscar'}
+                </Button>
+              </div>
+            </form>
+
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  {...register('somenteWhatsapp')}
+                />
+                Somente com WhatsApp
               </label>
-              <input
-                id="localizacao"
-                className="input-field h-[52px] text-base"
-                placeholder="Ex.: Pinheiros, São Paulo ou 01310-930"
-                value={localizacao}
-                onChange={(e) => setLocalizacao(e.target.value)}
-                name="localizacao"
-              />
+              <span className="text-xs">
+                Filtra apenas estabelecimentos cujo telefone está ativo no WhatsApp via Z-API.
+              </span>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex items-end">
-              <button
-                type="submit"
-                className="btn-primary w-full text-base font-semibold shadow-glow"
-                disabled={loading}
-              >
-                {loading ? 'Buscando...' : 'Buscar'}
-              </button>
-            </div>
-          </form>
-
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                className="h-4 w-4 cursor-pointer rounded border-slate-300 bg-white text-brand focus:ring-brand"
-                checked={somenteWhatsapp}
-                onChange={(e) => setSomenteWhatsapp(e.target.checked)}
-              />
-              Somente com WhatsApp
-            </label>
-            <span className="text-xs text-slate-500">
-              Filtra apenas os estabelecimentos cujo telefone está ativo no WhatsApp via Z-API.
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Painel</p>
+            <h2 className="text-2xl font-semibold text-foreground">Resultados</h2>
           </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Painel</p>
-              <h2 className="text-2xl font-semibold text-slate-900">Resultados</h2>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
             {resultados.length > 0 && (
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm text-slate-700 ring-1 ring-slate-200/70 transition hover:bg-slate-50"
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   const header = ['nome', 'endereco', 'telefone']
                   const rows = resultados.map((r) => [
@@ -241,222 +273,234 @@ export default function ConsultasClient({
                   URL.revokeObjectURL(url)
                 }}
               >
-                📤 Exportar CSV (nome, endereço, telefone)
-              </button>
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
             )}
             {totalCount !== null && (
-              <div className="text-sm text-slate-500">Total: {totalCount}</div>
-            )}
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <span className="h-2 w-2 animate-ping rounded-full bg-brand" />
-                <span>Buscando estabelecimentos...</span>
-              </div>
+              <Badge variant="secondary">{totalCount} resultados</Badge>
             )}
           </div>
-
-          {erro && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {erro}
+          {loading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="h-2 w-2 animate-ping rounded-full bg-primary" />
+              <span>Buscando estabelecimentos...</span>
             </div>
           )}
+        </div>
 
-          {!loading && resultados.length === 0 && renderEstadoVazio()}
+        {erro && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {erro}
+          </div>
+        )}
 
-          {visiveis.length > 0 && (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-                {visiveis.map((item) => (
-                  <article
-                    key={item.id}
-                className="glass-panel group relative flex h-full flex-col rounded-3xl border border-slate-200/70 p-3 shadow-xl transition hover:-translate-y-1 hover:shadow-glow"
-              >
-                {isSent(item.telefone) && (
-                  <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                    ENVIADO
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                        const newSet = new Set(removidos)
-                        newSet.add(item.id)
-                        setRemovidos(newSet)
-                        const novosVisiveis = visiveis.filter((v) => v.id !== item.id)
-                        const novosResultados = resultados.filter((v) => v.id !== item.id)
-                        setResultados(novosResultados)
-                        setVisiveis(novosVisiveis)
-                      }}
-                      className="absolute right-2 top-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-600/90 text-sm font-bold text-white shadow-lg shadow-red-900/50 transition hover:scale-105"
-                      title="Remover este estabelecimento (não entra no CSV)"
-                    >
-                      ✕
-                    </button>
-                    <div className="overflow-hidden rounded-2xl bg-slate-50 ring-1 ring-slate-200/70">
+        {!loading && resultados.length === 0 && renderEmptyState()}
+
+        {visiveis.length > 0 && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {visiveis.map((item) => (
+                <Card
+                  key={item.id}
+                  className="group relative flex h-full flex-col border border-border/60 bg-card/80 shadow-card transition hover:-translate-y-1 hover:shadow-elevated"
+                >
+                  <CardContent className="space-y-4 p-3">
+                    <div className="relative overflow-hidden rounded-2xl bg-muted/40 ring-1 ring-border/60">
+                      {isSent(item.telefone) && (
+                        <span className="absolute left-3 top-3 z-10">
+                          <Badge variant="success">Enviado</Badge>
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const novosVisiveis = visiveis.filter((v) => v.id !== item.id)
+                          const novosResultados = resultados.filter((v) => v.id !== item.id)
+                          setResultados(novosResultados)
+                          setVisiveis(novosVisiveis)
+                        }}
+                        className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-foreground shadow-lg transition hover:bg-white"
+                        title="Remover este estabelecimento (não entra no CSV)"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                       {item.fotoUrl ? (
                         <img
                           src={item.fotoUrl}
                           alt={item.nome}
-                          className="h-[180px] w-full object-cover transition duration-300 group-hover:scale-105"
+                          className="h-[170px] w-full object-cover transition duration-300 group-hover:scale-105"
                           loading="lazy"
                         />
                       ) : (
-                        <div className="flex h-[180px] items-center justify-center text-xs text-slate-500">
+                        <div className="flex h-[170px] items-center justify-center text-xs text-muted-foreground">
                           Sem foto
                         </div>
                       )}
                     </div>
-                <div className="mt-3 flex h-full flex-col justify-between gap-2">
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
-                              {item.nome}
-                            </h3>
-                            <p className="text-xs text-slate-600 leading-snug line-clamp-2">
-                              {item.endereco}
-                            </p>
-                          </div>
-                          {item.nota && (
-                            <span className="flex items-center gap-1 rounded-full bg-brand/15 px-2 py-1 text-xs font-semibold text-brand">
-                              <span aria-hidden>★</span>
-                              <span>{item.nota.toFixed(1)}</span>
-                            </span>
-                          )}
+
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold text-foreground line-clamp-2">
+                            {item.nome}
+                          </h3>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {item.endereco}
+                          </p>
                         </div>
-                        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-700">
-                          <span className="text-brand">☎</span>
-                          <span className="line-clamp-1">{item.telefone ?? 'Telefone não informado'}</span>
-                          {item.temWhatsapp && (
-                            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                              <span className="text-emerald-700">WhatsApp</span>
-                            </span>
-                          )}
-                        </span>
+                        {item.nota && (
+                          <Badge variant="secondary">
+                            <span aria-hidden>★</span>
+                            <span>{item.nota.toFixed(1)}</span>
+                          </Badge>
+                        )}
                       </div>
-                      <div className="flex items-center justify-between text-[12px] text-slate-600">
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-muted/60 px-2.5 py-1">
+                          <Phone className="h-3 w-3 text-primary" />
+                          <span className="line-clamp-1">
+                            {item.telefone ?? 'Telefone não informado'}
+                          </span>
+                        </span>
+                        {item.temWhatsapp && <Badge variant="success">WhatsApp</Badge>}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
                         <span className="line-clamp-1">Abra no Google Maps para rotas e avaliações</span>
                         <a
-                          className="rounded-full bg-white px-3 py-1.5 text-brand ring-1 ring-slate-200/70 transition hover:bg-slate-50 whitespace-nowrap"
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-primary ring-1 ring-border/70 transition hover:bg-muted/40"
                           href={item.mapsUrl}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          Ver no Maps →
+                          <MapPin className="h-3 w-3" />
+                          Ver no Maps
                         </a>
                       </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={!item.telefone || isSent(item.telefone) || sendingPhone === item.telefone}
-                            onClick={async () => {
-                              if (!item.telefone) return
-                              setSendingPhone(item.telefone)
-                              try {
-                                const resp = await fetch(`${apiPrefix}/atendimento/send`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    phones: [item.telefone],
-                                    name: item.nome,
-                                    template: 'supercotacao_demo',
-                                  }),
-                                })
-                                const data = await resp.json()
-                                if (!resp.ok) {
-                                  throw new Error(data.message || 'Falha ao enviar')
-                                }
-                                setResultados((prev) =>
-                                  prev.map((r) =>
-                                    r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
-                                  )
-                                )
-                                setVisiveis((prev) =>
-                                  prev.map((r) =>
-                                    r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
-                                  )
-                                )
-                              } catch (err) {
-                                setErro((err as Error)?.message || 'Erro ao disparar')
-                              } finally {
-                                setSendingPhone(null)
-                              }
-                            }}
-                            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                              isSent(item.telefone)
-                                ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
-                                : 'bg-white text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50'
-                            }`}
-                          >
-                            {isSent(item.telefone) ? 'Enviado' : sendingPhone === item.telefone ? 'Enviando...' : 'Disparar convite'}
-                          </button>
-
-                          {isSent(item.telefone) && (
-                            <button
-                              type="button"
-                              disabled={sendingPhone === item.telefone}
-                              onClick={async () => {
-                                if (!item.telefone) return
-                                setSendingPhone(item.telefone)
-                                try {
-                                  const resp = await fetch(`${apiPrefix}/atendimento/send`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      phones: [item.telefone],
-                                      name: item.nome,
-                                      template: 'supercotacao_demo',
-                                      force: true,
-                                    }),
-                                  })
-                                  const data = await resp.json()
-                                  if (!resp.ok) throw new Error(data.message || 'Falha ao reenviar')
-                                  setResultados((prev) =>
-                                    prev.map((r) =>
-                                      r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
-                                    )
-                                  )
-                                  setVisiveis((prev) =>
-                                    prev.map((r) =>
-                                      r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
-                                    )
-                                  )
-                                } catch (err) {
-                                  setErro((err as Error)?.message || 'Erro ao reenviar')
-                              } finally {
-                                setSendingPhone(null)
-                              }
-                            }}
-                              className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/70 hover:bg-slate-50"
-                            >
-                              {sendingPhone === item.telefone ? 'Reenviando...' : 'Reenviar'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
                     </div>
-                  </article>
-                ))}
+                  </CardContent>
+
+                  <CardFooter className="flex flex-wrap items-center gap-2 px-3 pb-4 pt-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isSent(item.telefone) ? 'soft' : 'outline'}
+                      disabled={!item.telefone || isSent(item.telefone) || sendingPhone === item.telefone}
+                      onClick={async () => {
+                        if (!item.telefone) return
+                        setSendingPhone(item.telefone)
+                        try {
+                          const resp = await fetch(`${apiPrefix}/atendimento/send`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              phones: [item.telefone],
+                              name: item.nome,
+                              template: 'supercotacao_demo',
+                            }),
+                          })
+                          const data = await resp.json()
+                          if (!resp.ok) {
+                            throw new Error(data.message || 'Falha ao enviar')
+                          }
+                          setResultados((prev) =>
+                            prev.map((r) =>
+                              r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                            )
+                          )
+                          setVisiveis((prev) =>
+                            prev.map((r) =>
+                              r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                            )
+                          )
+                          toast.success('Convite enviado com sucesso.')
+                        } catch (err) {
+                          const message = (err as Error)?.message || 'Erro ao disparar'
+                          setErro(message)
+                          toast.error(message)
+                        } finally {
+                          setSendingPhone(null)
+                        }
+                      }}
+                      className="flex-1"
+                    >
+                      <Send className="h-4 w-4" />
+                      {isSent(item.telefone)
+                        ? 'Enviado'
+                        : sendingPhone === item.telefone
+                          ? 'Enviando...'
+                          : 'Disparar convite'}
+                    </Button>
+
+                    {isSent(item.telefone) && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={sendingPhone === item.telefone}
+                        onClick={async () => {
+                          if (!item.telefone) return
+                          setSendingPhone(item.telefone)
+                          try {
+                            const resp = await fetch(`${apiPrefix}/atendimento/send`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                phones: [item.telefone],
+                                name: item.nome,
+                                template: 'supercotacao_demo',
+                                force: true,
+                              }),
+                            })
+                            const data = await resp.json()
+                            if (!resp.ok) throw new Error(data.message || 'Falha ao reenviar')
+                            setResultados((prev) =>
+                              prev.map((r) =>
+                                r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                              )
+                            )
+                            setVisiveis((prev) =>
+                              prev.map((r) =>
+                                r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                              )
+                            )
+                            toast.success('Convite reenviado.')
+                          } catch (err) {
+                            const message = (err as Error)?.message || 'Erro ao reenviar'
+                            setErro(message)
+                            toast.error(message)
+                          } finally {
+                            setSendingPhone(null)
+                          }
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        {sendingPhone === item.telefone ? 'Reenviando...' : 'Reenviar'}
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+            {visiveis.length < resultados.length && (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const proximo = Math.min(visiveis.length + 12, resultados.length)
+                    setVisiveis(resultados.slice(0, proximo))
+                  }}
+                >
+                  Mostrar mais ({countRestantes} restantes)
+                </Button>
               </div>
-              {visiveis.length < resultados.length && (
-                <div className="mt-4 flex justify-center">
-                  <button
-                    type="button"
-                    className="btn-primary px-5 py-3 text-sm"
-                    onClick={() => {
-                      const proximo = Math.min(visiveis.length + 12, resultados.length)
-                      setVisiveis(resultados.slice(0, proximo))
-                    }}
-                  >
-                    Mostrar mais ({countRestantes} restantes)
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </section>
-      </SidebarLayout>
-    </div>
+            )}
+          </>
+        )}
+      </section>
+    </SidebarLayout>
   )
 }
