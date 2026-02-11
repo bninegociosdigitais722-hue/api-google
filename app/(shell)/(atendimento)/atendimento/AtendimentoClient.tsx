@@ -374,9 +374,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
-          <div className="mb-3 flex items-center justify-between">
+      <div className="grid gap-3 lg:grid-cols-[320px_1fr]">
+        <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-3 shadow-card">
+          <div className="mb-2 flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Conversas</p>
               <h3 className="text-lg font-semibold text-foreground">Últimos contatos</h3>
@@ -404,7 +404,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 key={c.id}
                 onClick={() => setActivePhone(c.phone)}
                 className={cn(
-                  'mb-2 w-full rounded-2xl border border-transparent px-3 py-3 text-left transition',
+                  'mb-2 w-full rounded-2xl border border-transparent px-2.5 py-2 text-left transition',
                   activePhone === c.phone
                     ? 'bg-primary/10 text-foreground shadow-soft ring-1 ring-primary/20'
                     : 'hover:bg-muted/60'
@@ -423,7 +423,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   </div>
                   {c.is_whatsapp && <Badge variant="success">WhatsApp</Badge>}
                 </div>
-                <div className="mt-2 flex justify-end">
+                <div className="mt-1.5 flex justify-end">
                   <Button
                     type="button"
                     variant="ghost"
@@ -461,10 +461,10 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           </div>
         </div>
 
-        <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
+        <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-3 shadow-card">
           {activeConversa ? (
             <>
-              <header className="mb-3 flex items-center justify-between border-b border-border/60 pb-3">
+              <header className="mb-2 flex items-center justify-between border-b border-border/60 pb-2">
                 <div>
                   <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Atendimento</p>
                   <h2 className="text-xl font-semibold text-foreground">
@@ -502,7 +502,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 </Button>
               </header>
 
-              <div className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-2xl bg-muted/40 p-4">
+              <div className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-2xl bg-muted/40 p-3">
                 {!loadingMessages && messages.length === 0 && (
                   <EmptyState
                     icon={AlertTriangle}
@@ -529,9 +529,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 ))}
               </div>
 
-              <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-border/60 bg-background p-3">
+              <div className="mt-2 flex flex-col gap-2 rounded-2xl border border-border/60 bg-background p-2">
                 <Textarea
-                  className="min-h-[110px] resize-none"
+                  className="min-h-[90px] resize-none"
                   placeholder="Digite sua resposta..."
                   value={composer}
                   onChange={(e) => setComposer(e.target.value)}
