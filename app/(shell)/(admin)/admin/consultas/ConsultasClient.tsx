@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 
 import EmptyState from '@/components/EmptyState'
-import PageHeader from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
@@ -158,18 +157,7 @@ export default function ConsultasClient({
   )
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Consultas"
-        description="Busque comércios, filtre apenas quem tem WhatsApp ativo e abra rotas no Maps."
-        actions={
-          <Button variant="outline" size="sm" type="button">
-            <Download className="h-4 w-4" />
-            Exportar últimos resultados
-          </Button>
-        }
-      />
-      <section className="space-y-6">
+    <section className="space-y-6">
         <Card className="border border-border/60 bg-card/80 shadow-card">
           <CardContent className="space-y-6 p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -501,7 +489,6 @@ export default function ConsultasClient({
             )}
           </>
         )}
-      </section>
-    </div>
+    </section>
   )
 }
