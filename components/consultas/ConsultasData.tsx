@@ -32,14 +32,13 @@ export default async function ConsultasData({ apiPrefix, perfLabel, path }: Cons
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
   const db = user ? supabaseServer : supabaseAdmin
 
-  const { data: results, error, count } = await db
+  const { data: results, error } = await db
     .from('contacts')
     .select('id, name, phone, is_whatsapp, last_message_at, last_outbound_template, last_outbound_at', {
-      count: 'exact',
     })
     .eq('owner_id', ownerId)
     .order('last_message_at', { ascending: false })
-    .limit(200)
+    .limit(100)
   perf.mark('queries')
 
   const contatos = results ?? []
@@ -73,7 +72,7 @@ export default async function ConsultasData({ apiPrefix, perfLabel, path }: Cons
         lastOutboundTemplate: (c as any).last_outbound_template ?? null,
       }))}
       sentMap={sentMap}
-      total={typeof count === 'number' ? count : null}
+      total={null}
       error={hasError?.message}
       apiPrefix={apiPrefix}
     />
