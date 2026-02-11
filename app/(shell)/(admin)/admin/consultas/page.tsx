@@ -19,20 +19,17 @@ export default async function ConsultasPage() {
   const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
   const db = user ? supabaseServer : supabaseAdmin
 
-  const [{ data: results, error }, { count: total, error: countError }] = await Promise.all([
-    db
-      .from('contacts')
-      .select('id, name, phone, is_whatsapp, last_message_at, last_outbound_template, last_outbound_at', {
-        count: 'exact',
-      })
-      .eq('owner_id', ownerId)
-      .order('last_message_at', { ascending: false })
-      .limit(200),
-    db.from('contacts').select('id', { count: 'exact', head: true }).eq('owner_id', ownerId),
-  ])
+  const { data: results, error, count } = await db
+    .from('contacts')
+    .select('id, name, phone, is_whatsapp, last_message_at, last_outbound_template, last_outbound_at', {
+      count: 'exact',
+    })
+    .eq('owner_id', ownerId)
+    .order('last_message_at', { ascending: false })
+    .limit(200)
 
   const contatos = results ?? []
-  const hasError = error || countError
+  const hasError = error
 
   const sentMap = Object.fromEntries(
     contatos
@@ -60,7 +57,7 @@ export default async function ConsultasPage() {
         lastOutboundTemplate: (c as any).last_outbound_template ?? null,
       }))}
       sentMap={sentMap}
-      total={typeof total === 'number' ? total : null}
+      total={typeof count === 'number' ? count : null}
       error={hasError?.message}
       apiPrefix="/api/admin"
     />

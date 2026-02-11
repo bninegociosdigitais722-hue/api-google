@@ -25,18 +25,35 @@ export default async function AtendimentoPage() {
   let messagesByPhone: Record<string, Message[]> = {}
 
   try {
-    const [{ data: contacts }, { data: msgs }] = await Promise.all([
-      db
-        .from('contacts')
-        .select('id, phone, name, is_whatsapp, last_message_at')
-        .eq('owner_id', ownerId)
-        .order('last_message_at', { ascending: false })
-        .limit(200),
-      db
+    const contactsPromise = db
+      .from('contacts')
+      .select('id, phone, name, is_whatsapp, last_message_at')
+      .eq('owner_id', ownerId)
+      .order('last_message_at', { ascending: false })
+      .limit(200)
+
+    const messagesPromise = db
+      .from('messages')
+      .select('contact_id, body, direction, created_at')
+      .eq('owner_id', ownerId)
+      .order('created_at', { ascending: false })
+
+    const prefetchPromise = (async () => {
+      const contactsRes = await contactsPromise
+      const first = contactsRes.data?.[0]
+      if (!first) return null
+      return db
         .from('messages')
-        .select('contact_id, body, direction, created_at')
+        .select('id, contact_id, body, direction, status, created_at, media')
+        .eq('contact_id', first.id)
         .eq('owner_id', ownerId)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: true })
+    })()
+
+    const [{ data: contacts }, { data: msgs }, prefetchRes] = await Promise.all([
+      contactsPromise,
+      messagesPromise,
+      prefetchPromise,
     ])
 
     const contactIds = contacts?.map((c) => c.id) ?? []
@@ -62,18 +79,8 @@ export default async function AtendimentoPage() {
 
     // pré-carrega mensagens da conversa mais recente para evitar flash vazio
     const firstPhone = conversas[0]?.phone
-    if (firstPhone) {
-      const contactId = conversas[0].id
-      const { data: msgsAsc } = await db
-        .from('messages')
-        .select('id, contact_id, body, direction, status, created_at, media')
-        .eq('contact_id', contactId)
-        .eq('owner_id', ownerId)
-        .order('created_at', { ascending: true })
-
-      if (msgsAsc) {
-        messagesByPhone[firstPhone] = msgsAsc as Message[]
-      }
+    if (firstPhone && prefetchRes?.data) {
+      messagesByPhone[firstPhone] = prefetchRes.data as Message[]
     }
   } catch (err) {
     console.error('atendimento server fetch error', err)
