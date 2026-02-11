@@ -33,6 +33,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Informe phone.' }, { status: 400 })
   }
 
+  const limitParam = req.nextUrl.searchParams.get('limit')
+  const limit = Math.min(Math.max(Number(limitParam) || 100, 1), 200)
+
   const normalized = normalizePhoneToBR(phone)
   if (!normalized) {
     return NextResponse.json({ message: 'Telefone inválido.' }, { status: 400 })
@@ -63,6 +66,7 @@ export async function GET(req: NextRequest) {
     .eq('contact_id', contact.id)
     .eq('owner_id', ownerId)
     .order('created_at', { ascending: true })
+    .limit(limit)
 
   if (error) {
     logError('atendimento/messages list_error', {
@@ -82,6 +86,7 @@ export async function GET(req: NextRequest) {
     host,
     ownerId,
     contactId: contact.id,
+    limit,
     count: messages?.length ?? 0,
   })
 

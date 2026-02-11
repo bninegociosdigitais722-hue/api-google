@@ -34,61 +34,59 @@ export default async function AtendimentoPage() {
   let messagesByPhone: Record<string, Message[]> = {}
 
   try {
-    const contactsPromise = db
+    const contactsRes = await db
       .from('contacts')
       .select('id, phone, name, is_whatsapp, last_message_at')
       .eq('owner_id', ownerId)
       .order('last_message_at', { ascending: false })
-      .limit(200)
+      .limit(100)
 
-    const messagesPromise = db
-      .from('messages')
-      .select('contact_id, body, direction, created_at')
-      .eq('owner_id', ownerId)
-      .order('created_at', { ascending: false })
+    const contacts = contactsRes.data ?? []
+    const contactIds = contacts.map((c) => c.id)
+    const firstContact = contacts[0]
 
-    const prefetchPromise = (async () => {
-      const contactsRes = await contactsPromise
-      const first = contactsRes.data?.[0]
-      if (!first) return null
-      return db
-        .from('messages')
-        .select('id, contact_id, body, direction, status, created_at, media')
-        .eq('contact_id', first.id)
-        .eq('owner_id', ownerId)
-        .order('created_at', { ascending: true })
-    })()
+    const lastMessagesPromise = contactIds.length
+      ? db
+          .from('last_messages_by_contact')
+          .select('contact_id, body, direction, created_at, status')
+          .eq('owner_id', ownerId)
+          .in('contact_id', contactIds)
+      : Promise.resolve({ data: [] })
 
-    const [{ data: contacts }, { data: msgs }, prefetchRes] = await Promise.all([
-      contactsPromise,
-      messagesPromise,
+    const prefetchPromise = firstContact
+      ? db
+          .from('messages')
+          .select('id, contact_id, body, direction, status, created_at, media')
+          .eq('contact_id', firstContact.id)
+          .eq('owner_id', ownerId)
+          .order('created_at', { ascending: true })
+          .limit(100)
+      : Promise.resolve(null)
+
+    const [{ data: lastMessages }, prefetchRes] = await Promise.all([
+      lastMessagesPromise,
       prefetchPromise,
     ])
     perf.mark('queries')
 
-    const contactIds = contacts?.map((c) => c.id) ?? []
-    let messagesMap = new Map<number, Conversa['last_message']>()
-
-    if (msgs && msgs.length) {
-      for (const msg of msgs) {
-        if (!messagesMap.has(msg.contact_id)) {
-          messagesMap.set(msg.contact_id, {
-            body: msg.body,
-            direction: msg.direction as 'in' | 'out',
-            created_at: msg.created_at,
-          })
-        }
+    const messagesMap = new Map<number, Conversa['last_message']>()
+    if (lastMessages) {
+      for (const msg of lastMessages) {
+        if (!msg.body || !String(msg.body).trim()) continue
+        messagesMap.set(msg.contact_id, {
+          body: msg.body,
+          direction: msg.direction as 'in' | 'out',
+          created_at: msg.created_at,
+        })
       }
     }
 
-    conversas =
-      contacts?.map((c) => ({
-        ...c,
-        last_message: messagesMap.get(c.id) ?? null,
-      })) ?? []
+    conversas = contacts.map((c) => ({
+      ...c,
+      last_message: messagesMap.get(c.id) ?? null,
+    }))
 
-    // pré-carrega mensagens da conversa mais recente para evitar flash vazio
-    const firstPhone = conversas[0]?.phone
+    const firstPhone = firstContact?.phone
     if (firstPhone && prefetchRes?.data) {
       messagesByPhone[firstPhone] = prefetchRes.data as Message[]
     }

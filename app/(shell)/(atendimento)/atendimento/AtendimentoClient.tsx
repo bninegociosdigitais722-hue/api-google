@@ -226,7 +226,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     const requestPhone = phone
     setLoadingMessages(true)
     try {
-      const resp = await fetch(`/api/atendimento/messages?phone=${encodeURIComponent(phone)}`)
+      const resp = await fetch(
+        `/api/atendimento/messages?phone=${encodeURIComponent(phone)}&limit=100`
+      )
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) {
         if (activePhoneRef.current === requestPhone) {

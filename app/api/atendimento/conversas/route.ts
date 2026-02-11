@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     .select('id, phone, name, is_whatsapp, last_message_at')
     .eq('owner_id', ownerId)
     .order('last_message_at', { ascending: false })
-    .limit(200)
+    .limit(100)
 
   if (error) {
     logError('atendimento/conversas contacts_error', {
@@ -54,22 +54,19 @@ export async function GET(req: NextRequest) {
 
   if (contactIds.length) {
     const { data: msgs } = await supabaseAdmin
-      .from('messages')
+      .from('last_messages_by_contact')
       .select('contact_id, body, direction, created_at')
-      .in('contact_id', contactIds)
       .eq('owner_id', ownerId)
-      .order('created_at', { ascending: false })
+      .in('contact_id', contactIds)
 
     if (msgs) {
       for (const msg of msgs) {
         if (!msg.body || !String(msg.body).trim()) continue
-        if (!messagesMap.has(msg.contact_id)) {
-          messagesMap.set(msg.contact_id, {
-            body: msg.body,
-            direction: msg.direction as 'in' | 'out',
-            created_at: msg.created_at,
-          })
-        }
+        messagesMap.set(msg.contact_id, {
+          body: msg.body,
+          direction: msg.direction as 'in' | 'out',
+          created_at: msg.created_at,
+        })
       }
     }
   }
