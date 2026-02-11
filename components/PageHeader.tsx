@@ -14,7 +14,7 @@ export default function PageHeader({
   title,
   description,
   actions,
-  eyebrow = 'Seção',
+  eyebrow,
   className,
 }: PageHeaderProps) {
   return (
@@ -27,9 +27,11 @@ export default function PageHeader({
       <div className="absolute inset-0 -z-10 bg-grid-surface opacity-[0.18]" />
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
-          <span className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
-            {eyebrow}
-          </span>
+          {eyebrow && (
+            <span className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+              {eyebrow}
+            </span>
+          )}
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
               {title}

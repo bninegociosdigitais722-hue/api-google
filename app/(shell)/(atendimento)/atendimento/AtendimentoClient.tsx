@@ -14,7 +14,6 @@ import {
 } from 'lucide-react'
 
 import EmptyState from '@/components/EmptyState'
-import PageHeader from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -375,24 +374,20 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Atendimento"
-        description="Conversas via WhatsApp (Z-API). Dispare, acompanhe e responda."
-        actions={
-          <Button variant="outline" size="sm" onClick={loadConversas}>
-            <RefreshCw className={cn('h-4 w-4', polling && 'animate-spin')} />
-            Atualizar
-          </Button>
-        }
-      />
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="flex h-[78vh] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
+        <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Conversas</p>
               <h3 className="text-lg font-semibold text-foreground">Últimos contatos</h3>
             </div>
-            {polling && <span className="h-2 w-2 animate-ping rounded-full bg-primary" />}
+            <div className="flex items-center gap-2">
+              {polling && <span className="h-2 w-2 animate-ping rounded-full bg-primary" />}
+              <Button variant="outline" size="sm" onClick={loadConversas}>
+                <RefreshCw className={cn('h-4 w-4', polling && 'animate-spin')} />
+                Atualizar
+              </Button>
+            </div>
           </div>
 
           <div className="relative flex-1 min-h-0 overflow-y-auto pr-1">
@@ -466,7 +461,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           </div>
         </div>
 
-        <div className="flex h-[78vh] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
+        <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
           {activeConversa ? (
             <>
               <header className="mb-3 flex items-center justify-between border-b border-border/60 pb-3">
