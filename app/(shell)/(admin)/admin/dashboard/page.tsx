@@ -1,4 +1,5 @@
-import RecentActivityTable, { type ActivityRow } from '@/components/RecentActivityTable'
+import dynamic from 'next/dynamic'
+import type { ActivityRow } from '@/components/RecentActivityTable'
 import PageHeader from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,10 @@ import {
   Send,
   Timer,
 } from 'lucide-react'
+
+const RecentActivityTable = dynamic(() => import('@/components/RecentActivityTable'), {
+  loading: () => <div className="h-56 animate-pulse rounded-2xl bg-muted/40" />,
+})
 
 const kpis = [
   {
