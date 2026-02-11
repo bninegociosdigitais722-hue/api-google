@@ -34,8 +34,7 @@ export default async function ConsultasData({ apiPrefix, perfLabel, path }: Cons
 
   const { data: results, error } = await db
     .from('contacts')
-    .select('id, name, phone, is_whatsapp, last_message_at, last_outbound_template, last_outbound_at', {
-    })
+    .select('id, name, phone, is_whatsapp, last_outbound_template', {})
     .eq('owner_id', ownerId)
     .order('last_message_at', { ascending: false })
     .limit(100)
@@ -51,7 +50,7 @@ export default async function ConsultasData({ apiPrefix, perfLabel, path }: Cons
         String(c.phone),
         {
           template: (c as any).last_outbound_template as string | null,
-          lastOutboundAt: (c as any).last_outbound_at as string | null,
+          lastOutboundAt: null,
         },
       ])
   )
