@@ -1,22 +1,16 @@
-import SidebarLayout from '../../../components/SidebarLayout'
+import PageHeader from '@/components/PageHeader'
 
 export const metadata = {
   title: 'App | Radar Local',
 }
 
-const navItems = [
-  { href: '/app', label: 'Home' },
-  { href: '/app/consultas', label: 'Consultas' },
-  { href: '/app/suporte', label: 'Suporte' },
-]
-
 export default function AppHomePage() {
   return (
-    <SidebarLayout
-      title="Portal do Cliente"
-      description="Acesse consultas, acompanhamento de pedidos e suporte em um único lugar."
-      navItems={navItems}
-    >
+    <div className="space-y-6">
+      <PageHeader
+        title="Portal do Cliente"
+        description="Acesse consultas, acompanhamento de pedidos e suporte em um único lugar."
+      />
       <div className="rounded-3xl border border-border/70 bg-card/80 p-6 text-muted-foreground shadow-card">
         <p className="text-sm">
           Bem-vindo ao portal do cliente. Aqui você vai acompanhar consultas, mensagens e suporte.
@@ -37,6 +31,6 @@ export default function AppHomePage() {
           </div>
         </div>
       </div>
-    </SidebarLayout>
+    </div>
   )
 }

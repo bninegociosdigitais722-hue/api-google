@@ -1,19 +1,12 @@
 import { headers } from 'next/headers'
-import SidebarLayout from '../../../../components/SidebarLayout'
-import supabaseAdmin from '../../../../lib/supabase/admin'
-import { createSupabaseServerClient } from '../../../../lib/supabase/server'
-import { resolveOwnerId } from '../../../../lib/tenant'
-import { logWarn } from '../../../../lib/logger'
+import PageHeader from '@/components/PageHeader'
+import supabaseAdmin from '@/lib/supabase/admin'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { resolveOwnerId } from '@/lib/tenant'
 
 export const metadata = {
   title: 'Consultas | Portal do Cliente',
 }
-
-const navItems = [
-  { href: '/app', label: 'Home' },
-  { href: '/app/consultas', label: 'Consultas' },
-  { href: '/app/suporte', label: 'Suporte' },
-]
 
 export default async function ConsultasClientePage() {
   const headersList = await headers()
@@ -45,11 +38,11 @@ export default async function ConsultasClientePage() {
   const contactById = new Map(contacts.map((c) => [c.id, c]))
 
   return (
-    <SidebarLayout
-      title="Consultas recentes"
-      description="Veja os últimos contatos encontrados e acompanhe mensagens recentes."
-      navItems={navItems}
-    >
+    <div className="space-y-6">
+      <PageHeader
+        title="Consultas recentes"
+        description="Veja os últimos contatos encontrados e acompanhe mensagens recentes."
+      />
       <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-3xl border border-border/70 bg-card/80 p-5 shadow-card">
           <div className="flex items-center justify-between">
@@ -121,6 +114,6 @@ export default async function ConsultasClientePage() {
           </div>
         </div>
       </section>
-    </SidebarLayout>
+    </div>
   )
 }

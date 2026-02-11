@@ -1,19 +1,12 @@
 import { headers } from 'next/headers'
-import SidebarLayout from '../../../../components/SidebarLayout'
-import supabaseAdmin from '../../../../lib/supabase/admin'
-import { createSupabaseServerClient } from '../../../../lib/supabase/server'
-import { resolveOwnerId } from '../../../../lib/tenant'
-import { logWarn } from '../../../../lib/logger'
+import PageHeader from '@/components/PageHeader'
+import supabaseAdmin from '@/lib/supabase/admin'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { resolveOwnerId } from '@/lib/tenant'
 
 export const metadata = {
   title: 'Suporte | Portal do Cliente',
 }
-
-const navItems = [
-  { href: '/app', label: 'Home' },
-  { href: '/app/consultas', label: 'Consultas' },
-  { href: '/app/suporte', label: 'Suporte' },
-]
 
 export default async function SuporteClientePage() {
   const headersList = await headers()
@@ -33,11 +26,11 @@ export default async function SuporteClientePage() {
     .limit(20)
 
   return (
-    <SidebarLayout
-      title="Suporte"
-      description="Abra chamados e acompanhe as últimas interações. Em breve: tickets e SLA."
-      navItems={navItems}
-    >
+    <div className="space-y-6">
+      <PageHeader
+        title="Suporte"
+        description="Abra chamados e acompanhe as últimas interações. Em breve: tickets e SLA."
+      />
       <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-3xl border border-border/70 bg-card/80 p-5 shadow-card">
           <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Ajuda</p>
@@ -88,6 +81,6 @@ export default async function SuporteClientePage() {
           </div>
         </div>
       </div>
-    </SidebarLayout>
+    </div>
   )
 }

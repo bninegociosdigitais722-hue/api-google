@@ -1,5 +1,5 @@
-import SidebarLayout from '@/components/SidebarLayout'
 import RecentActivityTable, { type ActivityRow } from '@/components/RecentActivityTable'
+import PageHeader from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -96,35 +96,36 @@ const activities: ActivityRow[] = [
 
 export default function DashboardPage() {
   return (
-    <SidebarLayout
-      title="Dashboard"
-      description="Visão geral do produto. Em breve: consultas, disparos e respostas consolidadas."
-      actions={
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                Ações rápidas
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Atalhos</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Download className="h-4 w-4" /> Exportar relatório
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <ArrowUpRight className="h-4 w-4" /> Atualizar métricas
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button size="sm">
-            <Plus className="h-4 w-4" />
-            Nova consulta
-          </Button>
-        </>
-      }
-    >
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description="Visão geral do produto. Em breve: consultas, disparos e respostas consolidadas."
+        actions={
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Ações rápidas
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Atalhos</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Download className="h-4 w-4" /> Exportar relatório
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <ArrowUpRight className="h-4 w-4" /> Atualizar métricas
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm">
+              <Plus className="h-4 w-4" />
+              Nova consulta
+            </Button>
+          </>
+        }
+      />
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((card) => {
           const Icon = card.icon
@@ -212,6 +213,6 @@ export default function DashboardPage() {
         </div>
         <RecentActivityTable data={activities} />
       </section>
-    </SidebarLayout>
+    </div>
   )
 }

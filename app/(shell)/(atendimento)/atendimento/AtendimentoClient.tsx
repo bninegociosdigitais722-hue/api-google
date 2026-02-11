@@ -13,8 +13,8 @@ import {
   X,
 } from 'lucide-react'
 
-import SidebarLayout from '@/components/SidebarLayout'
 import EmptyState from '@/components/EmptyState'
+import PageHeader from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -372,16 +372,17 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   }
 
   return (
-    <SidebarLayout
-      title="Atendimento"
-      description="Conversas via WhatsApp (Z-API). Dispare, acompanhe e responda."
-      actions={
-        <Button variant="outline" size="sm" onClick={loadConversas}>
-          <RefreshCw className={cn('h-4 w-4', polling && 'animate-spin')} />
-          Atualizar
-        </Button>
-      }
-    >
+    <div className="space-y-6">
+      <PageHeader
+        title="Atendimento"
+        description="Conversas via WhatsApp (Z-API). Dispare, acompanhe e responda."
+        actions={
+          <Button variant="outline" size="sm" onClick={loadConversas}>
+            <RefreshCw className={cn('h-4 w-4', polling && 'animate-spin')} />
+            Atualizar
+          </Button>
+        }
+      />
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <div className="flex h-[78vh] flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
           <div className="mb-3 flex items-center justify-between">
@@ -640,6 +641,6 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           </div>
         </div>
       )}
-    </SidebarLayout>
+    </div>
   )
 }

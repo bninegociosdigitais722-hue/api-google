@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 import AtendimentoClient, { Conversa, Message } from './AtendimentoClient'
-import { resolveOwnerId } from '../../../lib/tenant'
-import { createSupabaseServerClient } from '../../../lib/supabase/server'
-import supabaseAdmin from '../../../lib/supabase/admin'
+import { resolveOwnerId } from '@/lib/tenant'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import supabaseAdmin from '@/lib/supabase/admin'
 
 export const metadata = {
   title: 'Atendimento | Radar Local',
