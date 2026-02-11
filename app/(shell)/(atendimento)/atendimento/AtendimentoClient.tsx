@@ -386,7 +386,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
         }
       />
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="flex h-[78vh] flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
+        <div className="flex h-[78vh] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Conversas</p>
@@ -395,7 +395,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
             {polling && <span className="h-2 w-2 animate-ping rounded-full bg-primary" />}
           </div>
 
-          <div className="relative flex-1 overflow-y-auto pr-1">
+          <div className="relative flex-1 min-h-0 overflow-y-auto pr-1">
             {!loadingConversas && conversas.length === 0 && (
               <EmptyState
                 icon={MessageCircle}
@@ -466,7 +466,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           </div>
         </div>
 
-        <div className="flex h-[78vh] flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
+        <div className="flex h-[78vh] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card">
           {activeConversa ? (
             <>
               <header className="mb-3 flex items-center justify-between border-b border-border/60 pb-3">
@@ -507,7 +507,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 </Button>
               </header>
 
-              <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-muted/40 p-4">
+              <div className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-2xl bg-muted/40 p-4">
                 {!loadingMessages && messages.length === 0 && (
                   <EmptyState
                     icon={AlertTriangle}
