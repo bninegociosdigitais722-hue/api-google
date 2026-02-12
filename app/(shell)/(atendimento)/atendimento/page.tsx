@@ -5,7 +5,6 @@ import { createServerPerf } from '@/lib/perf'
 import { resolveOwnerId } from '@/lib/tenant'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import supabaseAdmin from '@/lib/supabase/admin'
-import { getContactProfilePicture, hasZapiConfig } from '@/lib/zapi'
 
 export const metadata = {
   title: 'Atendimento | Radar Local',
@@ -82,36 +81,8 @@ export default async function AtendimentoPage() {
       }
     }
 
-    const fetchProfilePictures = async (phones: string[]) => {
-      const results: Record<string, string | null> = {}
-      if (!hasZapiConfig() || phones.length === 0) return results
-
-      const unique = Array.from(new Set(phones))
-      const concurrency = 5
-      let cursor = 0
-
-      const workers = Array.from({ length: Math.min(concurrency, unique.length) }).map(
-        async () => {
-          while (cursor < unique.length) {
-            const phone = unique[cursor++]
-            try {
-              results[phone] = await getContactProfilePicture(phone)
-            } catch {
-              results[phone] = null
-            }
-          }
-        }
-      )
-
-      await Promise.all(workers)
-      return results
-    }
-
-    const photos = await fetchProfilePictures(contacts.map((c) => c.phone))
-
     conversas = contacts.map((c) => ({
       ...c,
-      photo_url: photos[c.phone] ?? null,
       last_message: messagesMap.get(c.id) ?? null,
     }))
 

@@ -11,6 +11,8 @@ type ZapiIncoming = {
   notification?: string
   waitingMessage?: boolean
   ids?: string[]
+  isEdit?: boolean
+  lastSeen?: string | number | null
   phone?: string
   from?: string
   remoteJid?: string
@@ -87,6 +89,21 @@ const normalizeCallbackType = (value?: string | null) =>
 const normalizeMessageStatus = (value?: string | null) => {
   if (!value) return null
   return value.trim().toLowerCase()
+}
+
+const normalizePresenceStatus = (value?: string | null) => {
+  if (!value) return null
+  return value.trim().toUpperCase()
+}
+
+const parsePresenceLastSeen = (value?: string | number | null) => {
+  if (!value) return null
+  if (typeof value === 'number') {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? null : date.toISOString()
+  }
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
 }
 
 const hasMessagePayload = (payload: ZapiIncoming): boolean => {
@@ -277,6 +294,7 @@ export async function POST(req: NextRequest) {
   const callbackType = normalizeCallbackType(payload.type)
   const isReceivedCallback = callbackType === 'receivedcallback'
   const isStatusCallback = callbackType === 'messagestatuscallback'
+  const isPresenceCallback = callbackType === 'presencechatcallback'
   const hasMessage = hasMessagePayload(payload)
 
   if (isStatusCallback) {
@@ -304,6 +322,7 @@ export async function POST(req: NextRequest) {
       .update({ status: normalizedStatus })
       .eq('owner_id', ownerId)
       .in('provider_message_id', ids)
+      .is('deleted_at', null)
 
     if (error) {
       logError('zapi webhook status update_error', {
@@ -326,6 +345,40 @@ export async function POST(req: NextRequest) {
       phone,
       status: normalizedStatus,
       count: ids.length,
+    })
+
+    return NextResponse.json({ ok: true }, { status: 200 })
+  }
+
+  if (isPresenceCallback) {
+    const presence = normalizePresenceStatus(payload.status)
+    if (!presence) {
+      return NextResponse.json({ ok: true, ignored: 'presence_missing_status' }, { status: 200 })
+    }
+
+    const lastSeen = parsePresenceLastSeen(payload.lastSeen)
+
+    await supabaseAdmin
+      .from('contacts')
+      .upsert(
+        {
+          owner_id: ownerId,
+          phone,
+          is_whatsapp: true,
+          presence_status: presence,
+          presence_last_seen: lastSeen,
+          presence_updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'owner_id,phone' }
+      )
+
+    logInfo('zapi webhook presence updated', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      ownerId,
+      phone,
+      presence,
     })
 
     return NextResponse.json({ ok: true }, { status: 200 })
@@ -360,7 +413,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: 'unsupported message' }, { status: 200 })
   }
 
-  if (payload.fromMe) {
+  if (payload.fromMe && !payload.isEdit) {
     logInfo('zapi webhook ignored fromMe message', {
       tag: 'api/webhooks/zapi',
       requestId,
@@ -453,6 +506,23 @@ export async function POST(req: NextRequest) {
   const providerMessageId =
     payload.message?.id ?? payload.message?.messageId ?? payload.messageId ?? null
 
+  if (payload.isEdit && providerMessageId) {
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('messages')
+      .update({
+        body: cleanBody,
+        media,
+        edited_at: new Date().toISOString(),
+      })
+      .eq('owner_id', ownerId)
+      .eq('provider_message_id', providerMessageId)
+      .select('id')
+
+    if (!updateError && updated && updated.length > 0) {
+      return NextResponse.json({ ok: true, edited: true }, { status: 200 })
+    }
+  }
+
   if (providerMessageId) {
     const { data: existing } = await supabaseAdmin
       .from('messages')
@@ -468,12 +538,13 @@ export async function POST(req: NextRequest) {
   }
 
   const { error: insertError } = await withRetry(async () => {
+    const isOutbound = Boolean(payload.fromMe)
     const resp = await supabaseAdmin.from('messages').insert({
       owner_id: ownerId,
       contact_id: contact.id,
-      direction: 'in',
+      direction: isOutbound ? 'out' : 'in',
       body: cleanBody,
-      status: 'received',
+      status: isOutbound ? 'sent' : 'received',
       provider_message_id: providerMessageId,
       media,
     })
@@ -495,7 +566,10 @@ export async function POST(req: NextRequest) {
 
   await supabaseAdmin
     .from('contacts')
-    .update({ last_message_at: new Date().toISOString() })
+    .update({
+      last_message_at: new Date().toISOString(),
+      chat_unread: true,
+    })
     .eq('id', contact.id)
     .eq('owner_id', ownerId)
 

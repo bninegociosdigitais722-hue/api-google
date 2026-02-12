@@ -6,6 +6,8 @@ import {
   AlertTriangle,
   CalendarDays,
   Image as ImageIcon,
+  Mail,
+  MailOpen,
   MessageCircle,
   MoreHorizontal,
   Paperclip,
@@ -32,6 +34,15 @@ export type Conversa = {
   is_whatsapp: boolean | null
   last_message_at: string | null
   photo_url?: string | null
+  about?: string | null
+  notify?: string | null
+  short?: string | null
+  vname?: string | null
+  metadata_updated_at?: string | null
+  photo_updated_at?: string | null
+  presence_status?: string | null
+  presence_updated_at?: string | null
+  chat_unread?: boolean | null
   last_message?: {
     body: string
     direction: 'in' | 'out'
@@ -46,6 +57,9 @@ export type Message = {
   direction: 'in' | 'out'
   status: string | null
   created_at: string
+  provider_message_id?: string | null
+  edited_at?: string | null
+  deleted_at?: string | null
   media?: MessageMedia | null
 }
 
@@ -115,6 +129,29 @@ const formatLastActive = (value: string | null | undefined) => {
   return `Último contato em ${date.toLocaleDateString('pt-BR')}`
 }
 
+const formatPresenceLabel = (
+  status?: string | null,
+  updatedAt?: string | null
+): { label: string; tone: 'online' | 'typing' | 'recording' } | null => {
+  if (!status || !updatedAt) return null
+  const updated = new Date(updatedAt)
+  if (Number.isNaN(updated.getTime())) return null
+  const diffSeconds = (Date.now() - updated.getTime()) / 1000
+  if (diffSeconds > 90) return null
+
+  const normalized = status.trim().toUpperCase()
+  if (normalized === 'AVAILABLE') {
+    return { label: 'Online', tone: 'online' }
+  }
+  if (normalized === 'COMPOSING') {
+    return { label: 'Digitando...', tone: 'typing' }
+  }
+  if (normalized === 'RECORDING') {
+    return { label: 'Gravando áudio...', tone: 'recording' }
+  }
+  return null
+}
+
 const formatMessageStatus = (value?: string | null) => {
   if (!value) return ''
   const normalized = value.trim().toUpperCase()
@@ -124,6 +161,7 @@ const formatMessageStatus = (value?: string | null) => {
     READ: 'Lida',
     READ_BY_ME: 'Lida por você',
     PLAYED: 'Ouvida',
+    DELETED: 'Apagada',
   }
   return map[normalized] ?? value
 }
@@ -239,6 +277,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     activePhone ? initialMessagesByPhone[activePhone] || [] : []
   )
   const [loadingMessages, setLoadingMessages] = useState(false)
+  const [loadingContactMeta, setLoadingContactMeta] = useState(false)
   const [composer, setComposer] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null)
@@ -280,6 +319,41 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     () => formatLastActive(activeConversa?.last_message_at),
     [activeConversa?.last_message_at]
   )
+
+  const activePresence = useMemo(
+    () =>
+      formatPresenceLabel(activeConversa?.presence_status, activeConversa?.presence_updated_at),
+    [activeConversa?.presence_status, activeConversa?.presence_updated_at]
+  )
+
+  useEffect(() => {
+    if (!activePhone) return
+    const controller = new AbortController()
+    setLoadingContactMeta(true)
+
+    const loadContactMeta = async () => {
+      try {
+        const resp = await fetch(
+          `/api/atendimento/contact?phone=${encodeURIComponent(activePhone)}`,
+          { signal: controller.signal }
+        )
+        if (!resp.ok) return
+        const data = await resp.json().catch(() => ({}))
+        if (data?.contact) {
+          setConversas((prev) =>
+            prev.map((c) => (c.phone === activePhone ? { ...c, ...data.contact } : c))
+          )
+        }
+      } catch (err) {
+        // ignore abort errors
+      } finally {
+        setLoadingContactMeta(false)
+      }
+    }
+
+    loadContactMeta()
+    return () => controller.abort()
+  }, [activePhone])
 
   useEffect(() => {
     activePhoneRef.current = activePhone
@@ -476,6 +550,112 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     setAttachmentError(null)
   }
 
+  const runChatAction = async (action: 'read' | 'unread' | 'clear') => {
+    if (!activeConversa?.phone) return
+    if (action === 'clear') {
+      const ok = window.confirm('Tem certeza que deseja limpar a conversa?')
+      if (!ok) return
+    }
+    try {
+      const resp = await fetch('/api/atendimento/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: activeConversa.phone, action }),
+      })
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) throw new Error(data.message || 'Falha ao atualizar conversa')
+
+      if (action === 'clear') {
+        setMessages([])
+        messagesCacheRef.current[activeConversa.phone] = []
+        setConversas((prev) =>
+          prev.map((c) =>
+            c.phone === activeConversa.phone
+              ? { ...c, last_message: null, last_message_at: null, chat_unread: false }
+              : c
+          )
+        )
+        toast.success('Conversa limpa.')
+      }
+
+      if (action === 'read') {
+        setConversas((prev) =>
+          prev.map((c) =>
+            c.phone === activeConversa.phone ? { ...c, chat_unread: false } : c
+          )
+        )
+        toast.success('Conversa marcada como lida.')
+      }
+
+      if (action === 'unread') {
+        setConversas((prev) =>
+          prev.map((c) =>
+            c.phone === activeConversa.phone ? { ...c, chat_unread: true } : c
+          )
+        )
+        toast.success('Conversa marcada como não lida.')
+      }
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Falha ao atualizar conversa')
+    }
+  }
+
+  const deleteMessageItem = async (message: Message) => {
+    if (!activeConversa?.phone) return
+    if (!message.provider_message_id) {
+      toast.error('Mensagem sem identificador para exclusão.')
+      return
+    }
+    const ok = window.confirm('Excluir esta mensagem?')
+    if (!ok) return
+
+    try {
+      const resp = await fetch('/api/atendimento/message', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: activeConversa.phone,
+          messageId: message.provider_message_id,
+          owner: message.direction === 'out',
+        }),
+      })
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) throw new Error(data.message || 'Erro ao excluir mensagem')
+
+      const deletedAt = new Date().toISOString()
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? {
+                ...m,
+                body: '[mensagem apagada]',
+                media: null,
+                status: 'deleted',
+                deleted_at: deletedAt,
+              }
+            : m
+        )
+      )
+      if (activeConversa.phone) {
+        messagesCacheRef.current[activeConversa.phone] = (messagesCacheRef.current[
+          activeConversa.phone
+        ] || []).map((m) =>
+          m.id === message.id
+            ? {
+                ...m,
+                body: '[mensagem apagada]',
+                media: null,
+                status: 'deleted',
+                deleted_at: deletedAt,
+              }
+            : m
+        )
+      }
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Falha ao excluir mensagem')
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]">
@@ -528,12 +708,19 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
             )}
             {filteredConversas.map((c) => {
               const active = activePhone === c.phone
+              const presence = formatPresenceLabel(
+                c.presence_status,
+                c.presence_updated_at
+              )
               const timeLabel =
                 c.last_message?.created_at || c.last_message_at
                   ? formatConversationTime(c.last_message?.created_at ?? c.last_message_at)
                   : ''
               const preview =
-                c.last_message?.body?.trim() || (c.last_message ? '' : 'Sem mensagens ainda')
+                presence?.label ||
+                c.last_message?.body?.trim() ||
+                (c.last_message ? '' : 'Sem mensagens ainda')
+              const showPrefix = !presence && c.last_message?.direction === 'out'
               return (
                 <div key={c.id} className="group relative mb-2">
                   <button
@@ -570,6 +757,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                           >
                             {c.name || 'Contato sem nome'}
                           </p>
+                          {c.chat_unread && !active && (
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          )}
                           {timeLabel && (
                             <span
                               className={cn(
@@ -584,10 +774,16 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         <p
                           className={cn(
                             'line-clamp-1 text-xs',
-                            active ? 'text-white/70' : 'text-slate-500'
+                            presence
+                              ? active
+                                ? 'text-white/80'
+                                : 'text-emerald-600'
+                              : active
+                                ? 'text-white/70'
+                                : 'text-slate-500'
                           )}
                         >
-                          {c.last_message?.direction === 'out' ? 'Você: ' : ''}
+                          {showPrefix ? 'Você: ' : ''}
                           {preview || formatPhone(c.phone)}
                         </p>
                       </div>
@@ -640,7 +836,10 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     <p className="text-sm font-semibold text-slate-900">
                       {activeConversa.name || 'Contato sem nome'}
                     </p>
-                    <p className="text-xs text-slate-500">{activeStatusLabel}</p>
+                    <p className="text-xs text-slate-500">
+                      {activePresence?.label ?? activeStatusLabel}
+                      {loadingContactMeta && <span className="ml-2 text-[10px]">Atualizando...</span>}
+                    </p>
                     <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
                       <span>{formatPhone(activeConversa.phone)}</span>
                       {activeConversa.is_whatsapp && <span>• WhatsApp</span>}
@@ -654,6 +853,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   <Button variant="ghost" size="icon">
                     <Video className="h-4 w-4" />
                   </Button>
+                  <Button variant="ghost" size="icon" onClick={() => runChatAction('read')}>
+                    <MailOpen className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => runChatAction('unread')}>
+                    <Mail className="h-4 w-4" />
+                  </Button>
                   <Button variant="ghost" size="icon">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
@@ -661,27 +866,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     variant="ghost"
                     size="icon"
                     className="text-slate-400 hover:text-red-600"
-                    onClick={async () => {
-                      if (!activeConversa?.phone) return
-                      const ok = window.confirm('Tem certeza que deseja limpar a conversa?')
-                      if (!ok) return
-                      try {
-                        const resp = await fetch(
-                          `/api/atendimento/messages?phone=${encodeURIComponent(activeConversa.phone)}`,
-                          { method: 'DELETE' }
-                        )
-                        const data = await resp.json()
-                        if (!resp.ok) throw new Error(data.message || 'Erro ao limpar conversa')
-                        setMessages([])
-                        if (activeConversa?.phone) {
-                          messagesCacheRef.current[activeConversa.phone] = []
-                        }
-                        await loadConversas()
-                        toast.success('Conversa limpa.')
-                      } catch (err) {
-                        toast.error((err as Error)?.message || 'Falha ao limpar conversa')
-                      }
-                    }}
+                    onClick={() => runChatAction('clear')}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -719,14 +904,34 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     )}
                     <div
                       className={cn(
-                        'max-w-[72%] rounded-2xl px-3 py-2 text-sm shadow-sm',
+                        'group relative max-w-[72%] rounded-2xl px-3 py-2 text-sm shadow-sm',
                         m.direction === 'out'
                           ? 'bg-slate-900 text-white'
                           : 'border border-slate-200 bg-white text-slate-700'
                       )}
                     >
-                      {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
-                      {renderMedia(m.media, (src, label) => setLightbox({ src, label }))}
+                      {m.provider_message_id && (
+                        <button
+                          type="button"
+                          onClick={() => deleteMessageItem(m)}
+                          className={cn(
+                            'absolute -right-2 -top-2 hidden h-6 w-6 items-center justify-center rounded-full border bg-white text-slate-400 shadow-sm transition hover:text-red-600 group-hover:inline-flex',
+                            m.direction === 'out' && 'bg-slate-800 text-white'
+                          )}
+                          aria-label="Excluir mensagem"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {m.deleted_at ? (
+                        <p className="italic text-slate-400">Mensagem apagada</p>
+                      ) : (
+                        <>
+                          {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
+                          {renderMedia(m.media, (src, label) => setLightbox({ src, label }))}
+                        </>
+                      )}
                       <p
                         className={cn(
                           'mt-2 text-[10px]',
@@ -734,9 +939,14 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         )}
                       >
                         {new Date(m.created_at).toLocaleString('pt-BR')}
-                        {m.direction === 'out' && m.status && (
-                          <span> • {formatMessageStatus(m.status)}</span>
+                        {m.direction === 'out' && (
+                          <>
+                            {m.deleted_at
+                              ? ' • Apagada'
+                              : m.status && ` • ${formatMessageStatus(m.status)}`}
+                          </>
                         )}
+                        {m.edited_at && !m.deleted_at && <span> • Editada</span>}
                       </p>
                     </div>
                     {m.direction === 'out' && (
@@ -898,6 +1108,41 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                       : '—'}
                   </span>
                 </div>
+                {activeConversa.notify && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <MessageCircle className="h-4 w-4" />
+                      Nome WhatsApp
+                    </div>
+                    <span className="font-medium text-slate-900">{activeConversa.notify}</span>
+                  </div>
+                )}
+                {activeConversa.short && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <MessageCircle className="h-4 w-4" />
+                      Short
+                    </div>
+                    <span className="font-medium text-slate-900">{activeConversa.short}</span>
+                  </div>
+                )}
+                {activeConversa.vname && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <MessageCircle className="h-4 w-4" />
+                      Nome salvo
+                    </div>
+                    <span className="font-medium text-slate-900">{activeConversa.vname}</span>
+                  </div>
+                )}
+                {activeConversa.about && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                    <span className="block text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                      Recado
+                    </span>
+                    <p className="mt-1 text-sm text-slate-700">{activeConversa.about}</p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6">

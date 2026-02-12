@@ -19,6 +19,16 @@ type ZapiProfilePictureResponse = {
   link?: string | null
 }
 
+export type ZapiContactMetadata = {
+  phone?: string | null
+  name?: string | null
+  short?: string | null
+  vname?: string | null
+  notify?: string | null
+  imgUrl?: string | null
+  about?: string | null
+}
+
 const ensureEnv = (name: string): string => {
   const value = process.env[name]
   if (!value) {
@@ -77,6 +87,27 @@ const zapiPost = async <T>(path: string, payload: Record<string, any>): Promise<
   return (await resp.json()) as T
 }
 
+const zapiDelete = async <T>(path: string, payload: Record<string, any>): Promise<T> => {
+  const { instanceId, token, clientToken } = getZapiConfig()
+  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/${path}`
+
+  const resp = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Client-Token': clientToken,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!resp.ok) {
+    const text = await resp.text()
+    throw new Error(`Z-API respondeu ${resp.status}: ${text || resp.statusText}`)
+  }
+
+  return (await resp.json().catch(() => ({}))) as T
+}
+
 export const normalizePhoneToBR = (phone?: string | null): string | null => {
   if (!phone) return null
   const digits = phone.replace(/\D/g, '')
@@ -97,6 +128,33 @@ export const getContactProfilePicture = async (phone?: string | null): Promise<s
   )
   const link = Array.isArray(data) ? data[0]?.link : null
   return link ?? null
+}
+
+export const getContactMetadata = async (phone?: string | null): Promise<ZapiContactMetadata | null> => {
+  const normalized = normalizePhoneToBR(phone)
+  if (!normalized) return null
+  if (!hasZapiConfig()) return null
+
+  return zapiGet<ZapiContactMetadata>(`contacts/${encodeURIComponent(normalized)}`)
+}
+
+export const modifyChat = async (
+  phone: string,
+  action: 'read' | 'unread' | 'clear'
+): Promise<{ value?: boolean }> => {
+  return zapiPost<{ value?: boolean }>('modify-chat', { phone, action })
+}
+
+export const readMessage = async (phone: string, messageId: string): Promise<Record<string, any>> => {
+  return zapiPost<Record<string, any>>('read-message', { phone, messageId })
+}
+
+export const deleteMessage = async (
+  phone: string,
+  messageId: string,
+  owner: boolean
+): Promise<Record<string, any>> => {
+  return zapiDelete<Record<string, any>>('messages', { phone, messageId, owner })
 }
 
 export const phoneExistsBatch = async (phones: string[]): Promise<Map<string, boolean>> => {

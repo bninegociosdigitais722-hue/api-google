@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
-import { getContactProfilePicture, hasZapiConfig, normalizePhoneToBR } from '../../../../lib/zapi'
+import { normalizePhoneToBR } from '../../../../lib/zapi'
 import { resolveOwnerId } from '../../../../lib/tenant'
 import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
 
   const { data: contact, error: contactError } = await db
     .from('contacts')
-    .select('id, phone, name')
+    .select(
+      'id, phone, name, photo_url, about, notify, short, vname, presence_status, presence_updated_at, chat_unread'
+    )
     .eq('phone', normalized)
     .eq('owner_id', ownerId)
     .single()
@@ -62,7 +64,9 @@ export async function GET(req: NextRequest) {
 
   const { data: messages, error } = await db
     .from('messages')
-    .select('id, contact_id, body, direction, status, created_at, media')
+    .select(
+      'id, contact_id, body, direction, status, created_at, media, provider_message_id, edited_at, deleted_at'
+    )
     .eq('contact_id', contact.id)
     .eq('owner_id', ownerId)
     .order('created_at', { ascending: true })
@@ -90,12 +94,7 @@ export async function GET(req: NextRequest) {
     count: messages?.length ?? 0,
   })
 
-  const photoUrl = hasZapiConfig() ? await getContactProfilePicture(contact.phone).catch(() => null) : null
-
-  return NextResponse.json(
-    { messages: messages ?? [], contact: { ...contact, photo_url: photoUrl } },
-    { status: 200 }
-  )
+  return NextResponse.json({ messages: messages ?? [], contact }, { status: 200 })
 }
 
 export async function DELETE(req: NextRequest) {
