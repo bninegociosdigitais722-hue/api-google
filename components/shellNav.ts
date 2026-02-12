@@ -12,15 +12,18 @@ export type NavGroup = { label: string; items: NavItem[] }
 
 const defaultNav: NavGroup[] = [
   {
-    label: 'Principal',
+    label: 'Menu',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/consultas', label: 'Consultas', icon: Search },
-      { href: '/atendimento', label: 'Atendimento', icon: MessagesSquare },
     ],
   },
   {
-    label: 'Gestão',
+    label: 'Apps',
+    items: [{ href: '/atendimento', label: 'Chat', icon: MessagesSquare }],
+  },
+  {
+    label: 'Pages',
     items: [{ href: '/configuracoes', label: 'Configurações', icon: Settings, badge: 'Em breve' }],
   },
 ]
@@ -41,7 +44,7 @@ export const resolveNavGroups = (pathname: string): NavGroup[] => {
   if (pathname.startsWith('/app')) {
     return [
       {
-        label: 'Navegação',
+        label: 'Menu',
         items: portalNavItems.map((item) => ({
           ...item,
           icon: item.icon ?? iconByLabel[item.label] ?? LayoutDashboard,
@@ -52,7 +55,7 @@ export const resolveNavGroups = (pathname: string): NavGroup[] => {
 
   return [
     {
-      label: 'Navegação',
+      label: 'Menu',
       items: defaultNav[0].items.map((item) => ({
         ...item,
         icon: item.icon ?? iconByLabel[item.label] ?? LayoutDashboard,

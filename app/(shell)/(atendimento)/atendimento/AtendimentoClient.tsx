@@ -4,18 +4,24 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertTriangle,
+  CalendarDays,
   Image as ImageIcon,
   MessageCircle,
+  MoreHorizontal,
   Paperclip,
+  Phone,
   RefreshCw,
+  Search,
   Send,
   Trash2,
+  Video,
   X,
 } from 'lucide-react'
 
 import EmptyState from '@/components/EmptyState'
-import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
@@ -70,6 +76,42 @@ const formatPhone = (phone: string) => {
     return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
   }
   return `+${phone}`
+}
+
+const getInitials = (name: string | null, phone: string) => {
+  const cleaned = (name ?? '').trim()
+  if (cleaned) {
+    const parts = cleaned.split(' ').filter(Boolean)
+    const first = parts[0]?.[0] ?? ''
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : ''
+    return `${first}${last}`.toUpperCase()
+  }
+  const digits = phone.replace(/\D/g, '')
+  return digits.slice(-2) || 'RL'
+}
+
+const formatConversationTime = (value: string | null | undefined) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = new Date()
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
+
+const formatLastActive = (value: string | null | undefined) => {
+  if (!value) return 'Sem atividade recente'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Sem atividade recente'
+  const diffMinutes = Math.floor((Date.now() - date.getTime()) / 60000)
+  if (diffMinutes < 5) return 'Ativo agora'
+  if (diffMinutes < 60) return `Ativo há ${diffMinutes} min`
+  if (diffMinutes < 24 * 60) {
+    return `Hoje às ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+  }
+  return `Último contato em ${date.toLocaleDateString('pt-BR')}`
 }
 
 const MAX_ATTACHMENT_SIZE_MB = 8
@@ -175,6 +217,7 @@ const renderMedia = (
 export default function AtendimentoClient({ initialConversas, initialMessagesByPhone }: Props) {
   const [conversas, setConversas] = useState<Conversa[]>(initialConversas)
   const [loadingConversas, setLoadingConversas] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const [activePhone, setActivePhone] = useState<string | null>(
     initialConversas[0]?.phone ?? null
   )
@@ -198,6 +241,32 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     [conversas, activePhone]
   )
 
+  const filteredConversas = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    if (!term) return conversas
+    return conversas.filter((c) => {
+      const name = (c.name ?? '').toLowerCase()
+      const phone = c.phone.toLowerCase()
+      const lastMessage = (c.last_message?.body ?? '').toLowerCase()
+      return name.includes(term) || phone.includes(term) || lastMessage.includes(term)
+    })
+  }, [conversas, searchTerm])
+
+  const sharedMedia = useMemo(() => {
+    return messages
+      .map((m) => m.media)
+      .filter(
+        (media): media is MessageMedia =>
+          Boolean(media && media.type === 'image' && (media.thumbnailUrl || media.url))
+      )
+      .slice(0, 4)
+  }, [messages])
+
+  const activeStatusLabel = useMemo(
+    () => formatLastActive(activeConversa?.last_message_at),
+    [activeConversa?.last_message_at]
+  )
+
   useEffect(() => {
     activePhoneRef.current = activePhone
   }, [activePhone])
@@ -217,6 +286,27 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     } finally {
       setLoadingConversas(false)
       setPolling(false)
+    }
+  }
+
+  const deleteConversa = async (phone: string) => {
+    const ok = window.confirm('Excluir conversa e contato?')
+    if (!ok) return
+    try {
+      const resp = await fetch(`/api/atendimento/conversas?phone=${encodeURIComponent(phone)}`, {
+        method: 'DELETE',
+      })
+      const data = await resp.json()
+      if (!resp.ok) throw new Error(data.message || 'Erro ao excluir conversa')
+      setConversas((prev) => prev.filter((item) => item.phone !== phone))
+      delete messagesCacheRef.current[phone]
+      if (activePhone === phone) {
+        setActivePhone(null)
+        setMessages([])
+      }
+      toast.success('Conversa removida.')
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Falha ao excluir conversa')
     }
   }
 
@@ -374,24 +464,47 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 lg:grid-cols-[320px_1fr]">
-        <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-3 shadow-card">
-          <div className="mb-2 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Conversas</p>
-              <h3 className="text-lg font-semibold text-foreground">Últimos contatos</h3>
+      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+        <section className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-slate-900 text-xs font-semibold text-white">
+                  RL
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Equipe Radar</p>
+                <div className="flex items-center gap-2 text-xs text-emerald-600">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Disponível
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {polling && <span className="h-2 w-2 animate-ping rounded-full bg-primary" />}
-              <Button variant="outline" size="sm" onClick={loadConversas}>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={loadConversas}>
                 <RefreshCw className={cn('h-4 w-4', polling && 'animate-spin')} />
-                Atualizar
+              </Button>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          <div className="relative flex-1 min-h-0 overflow-y-auto pr-1">
-            {!loadingConversas && conversas.length === 0 && (
+          <div className="mt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar..."
+                className="h-10 pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-1">
+            {!loadingConversas && filteredConversas.length === 0 && (
               <EmptyState
                 icon={MessageCircle}
                 title="Nenhuma conversa ainda"
@@ -399,110 +512,160 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 className="mt-6"
               />
             )}
-            {conversas.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActivePhone(c.phone)}
-                className={cn(
-                  'mb-2 w-full rounded-2xl border border-transparent px-2.5 py-2 text-left transition',
-                  activePhone === c.phone
-                    ? 'bg-primary/10 text-foreground shadow-soft ring-1 ring-primary/20'
-                    : 'hover:bg-muted/60'
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{c.name || 'Contato sem nome'}</p>
-                    <p className="text-xs text-muted-foreground">{formatPhone(c.phone)}</p>
-                    {c.last_message && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {c.last_message.direction === 'out' ? 'Você: ' : ''}
-                        {c.last_message.body}
-                      </p>
+            {filteredConversas.map((c) => {
+              const active = activePhone === c.phone
+              const timeLabel =
+                c.last_message?.created_at || c.last_message_at
+                  ? formatConversationTime(c.last_message?.created_at ?? c.last_message_at)
+                  : ''
+              const preview =
+                c.last_message?.body?.trim() || (c.last_message ? '' : 'Sem mensagens ainda')
+              return (
+                <div key={c.id} className="group relative mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setActivePhone(c.phone)}
+                    className={cn(
+                      'w-full rounded-xl border px-3 py-2 text-left transition',
+                      active
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                        : 'border-transparent hover:bg-slate-100'
                     )}
-                  </div>
-                  {c.is_whatsapp && <Badge variant="success">WhatsApp</Badge>}
-                </div>
-                <div className="mt-1.5 flex justify-end">
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback
+                          className={cn(
+                            'text-xs font-semibold',
+                            active ? 'bg-white/15 text-white' : 'bg-slate-200 text-slate-600'
+                          )}
+                        >
+                          {getInitials(c.name, c.phone)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p
+                            className={cn(
+                              'truncate text-sm font-semibold',
+                              active ? 'text-white' : 'text-slate-900'
+                            )}
+                          >
+                            {c.name || 'Contato sem nome'}
+                          </p>
+                          {timeLabel && (
+                            <span
+                              className={cn(
+                                'text-xs',
+                                active ? 'text-white/70' : 'text-slate-400'
+                              )}
+                            >
+                              {timeLabel}
+                            </span>
+                          )}
+                        </div>
+                        <p
+                          className={cn(
+                            'line-clamp-1 text-xs',
+                            active ? 'text-white/70' : 'text-slate-500'
+                          )}
+                        >
+                          {c.last_message?.direction === 'out' ? 'Você: ' : ''}
+                          {preview || formatPhone(c.phone)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      {c.is_whatsapp && (
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                            active ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'
+                          )}
+                        >
+                          WhatsApp
+                        </span>
+                      )}
+                    </div>
+                  </button>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700"
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      const ok = window.confirm('Excluir conversa e contato?')
+                    size="icon"
+                    className="absolute right-2 top-2 h-7 w-7 text-slate-400 opacity-0 transition hover:text-red-600 group-hover:opacity-100"
+                    onClick={() => deleteConversa(c.phone)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          {activeConversa ? (
+            <>
+              <header className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-11 w-11">
+                    <AvatarFallback className="bg-slate-900 text-sm font-semibold text-white">
+                      {getInitials(activeConversa.name, activeConversa.phone)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {activeConversa.name || 'Contato sem nome'}
+                    </p>
+                    <p className="text-xs text-slate-500">{activeStatusLabel}</p>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                      <span>{formatPhone(activeConversa.phone)}</span>
+                      {activeConversa.is_whatsapp && <span>• WhatsApp</span>}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon">
+                    <Phone className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon">
+                    <Video className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-slate-400 hover:text-red-600"
+                    onClick={async () => {
+                      if (!activeConversa?.phone) return
+                      const ok = window.confirm('Tem certeza que deseja limpar a conversa?')
                       if (!ok) return
                       try {
                         const resp = await fetch(
-                          `/api/atendimento/conversas?phone=${encodeURIComponent(c.phone)}`,
+                          `/api/atendimento/messages?phone=${encodeURIComponent(activeConversa.phone)}`,
                           { method: 'DELETE' }
                         )
                         const data = await resp.json()
-                        if (!resp.ok) throw new Error(data.message || 'Erro ao excluir conversa')
-                        setConversas((prev) => prev.filter((item) => item.phone !== c.phone))
-                        delete messagesCacheRef.current[c.phone]
-                        if (activePhone === c.phone) {
-                          setActivePhone(null)
-                          setMessages([])
+                        if (!resp.ok) throw new Error(data.message || 'Erro ao limpar conversa')
+                        setMessages([])
+                        if (activeConversa?.phone) {
+                          messagesCacheRef.current[activeConversa.phone] = []
                         }
-                        toast.success('Conversa removida.')
+                        await loadConversas()
+                        toast.success('Conversa limpa.')
                       } catch (err) {
-                        toast.error((err as Error)?.message || 'Falha ao excluir conversa')
+                        toast.error((err as Error)?.message || 'Falha ao limpar conversa')
                       }
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
-                    Excluir
                   </Button>
                 </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-border/60 bg-card/80 p-3 shadow-card">
-          {activeConversa ? (
-            <>
-              <header className="mb-2 flex items-center justify-between border-b border-border/60 pb-2">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Atendimento</p>
-                  <h2 className="text-xl font-semibold text-foreground">
-                    {activeConversa.name || 'Contato sem nome'}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">{formatPhone(activeConversa.phone)}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    if (!activeConversa?.phone) return
-                    const ok = window.confirm('Tem certeza que deseja limpar a conversa?')
-                    if (!ok) return
-                    try {
-                      const resp = await fetch(
-                        `/api/atendimento/messages?phone=${encodeURIComponent(activeConversa.phone)}`,
-                        { method: 'DELETE' }
-                      )
-                      const data = await resp.json()
-                      if (!resp.ok) throw new Error(data.message || 'Erro ao limpar conversa')
-                      setMessages([])
-                      if (activeConversa?.phone) {
-                        messagesCacheRef.current[activeConversa.phone] = []
-                      }
-                      await loadConversas()
-                      toast.success('Conversa limpa.')
-                    } catch (err) {
-                      toast.error((err as Error)?.message || 'Falha ao limpar conversa')
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Limpar conversa
-                </Button>
               </header>
 
-              <div className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-2xl bg-muted/40 p-3">
+              <div className="mt-4 flex-1 min-h-0 space-y-4 overflow-y-auto rounded-2xl bg-slate-50 p-4">
                 {!loadingMessages && messages.length === 0 && (
                   <EmptyState
                     icon={AlertTriangle}
@@ -514,73 +677,51 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   <div
                     key={m.id}
                     className={cn(
-                      'max-w-[76%] rounded-2xl px-3 py-2 text-sm shadow-sm',
-                      m.direction === 'out'
-                        ? 'ml-auto bg-primary/10 text-foreground ring-1 ring-primary/20'
-                        : 'bg-card text-muted-foreground ring-1 ring-border/60'
+                      'flex items-end gap-2',
+                      m.direction === 'out' ? 'justify-end' : 'justify-start'
                     )}
                   >
-                    {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
-                    {renderMedia(m.media, (src, label) => setLightbox({ src, label }))}
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {new Date(m.created_at).toLocaleString('pt-BR')}
-                    </p>
+                    {m.direction === 'in' && (
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="bg-slate-200 text-[10px] font-semibold text-slate-600">
+                          {getInitials(activeConversa.name, activeConversa.phone)}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                    <div
+                      className={cn(
+                        'max-w-[72%] rounded-2xl px-3 py-2 text-sm shadow-sm',
+                        m.direction === 'out'
+                          ? 'bg-slate-900 text-white'
+                          : 'border border-slate-200 bg-white text-slate-700'
+                      )}
+                    >
+                      {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
+                      {renderMedia(m.media, (src, label) => setLightbox({ src, label }))}
+                      <p
+                        className={cn(
+                          'mt-2 text-[10px]',
+                          m.direction === 'out' ? 'text-white/70' : 'text-slate-400'
+                        )}
+                      >
+                        {new Date(m.created_at).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                    {m.direction === 'out' && (
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="bg-slate-900 text-[10px] font-semibold text-white">
+                          EU
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                   </div>
                 ))}
               </div>
 
-              <div className="mt-2 flex flex-col gap-2 rounded-2xl border border-border/60 bg-background p-2">
-                <Textarea
-                  className="min-h-[90px] resize-none"
-                  placeholder="Digite sua resposta..."
-                  value={composer}
-                  onChange={(e) => setComposer(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                      e.preventDefault()
-                      sendMessage()
-                    }
-                  }}
-                />
-                {attachment && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground ring-1 ring-border/70">
-                    <div className="flex items-center gap-2">
-                      {attachmentPreview ? (
-                        <img
-                          src={attachmentPreview}
-                          alt={attachment.name}
-                          className="h-10 w-10 rounded-lg object-cover ring-1 ring-border/70"
-                        />
-                      ) : (
-                        <span className="rounded-full bg-white px-2 py-1 text-[10px] text-muted-foreground ring-1 ring-border/70">
-                          Anexo
-                        </span>
-                      )}
-                      <span className="font-semibold text-foreground">{attachment.name}</span>
-                      <span className="text-muted-foreground">{formatBytes(attachment.size)}</span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        setAttachment(null)
-                        setAttachmentError(null)
-                        if (fileInputRef.current) {
-                          fileInputRef.current.value = ''
-                        }
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                      Remover
-                    </Button>
-                  </div>
-                )}
-                {attachmentError && <p className="text-xs text-red-600">{attachmentError}</p>}
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border/70 bg-white px-3 py-1 text-xs font-semibold text-foreground shadow-sm hover:bg-muted/40">
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-end gap-3">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-100">
                       <Paperclip className="h-3 w-3" />
                       Anexar
                       <input
@@ -591,15 +732,68 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         onChange={handleAttachmentChange}
                       />
                     </label>
-                    <span>Enter para enviar • Shift+Enter para nova linha</span>
+                    <Textarea
+                      className="min-h-[70px] flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+                      placeholder="Digite sua resposta..."
+                      value={composer}
+                      onChange={(e) => setComposer(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                          e.preventDefault()
+                          sendMessage()
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={sendMessage}
+                      size="icon"
+                      className="h-10 w-10 rounded-full"
+                      disabled={sending || (!composer.trim() && !attachment)}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button
-                    onClick={sendMessage}
-                    disabled={sending || (!composer.trim() && !attachment)}
-                  >
-                    <Send className="h-4 w-4" />
-                    {sending ? 'Enviando...' : 'Enviar'}
-                  </Button>
+
+                  {attachment && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200">
+                      <div className="flex items-center gap-2">
+                        {attachmentPreview ? (
+                          <img
+                            src={attachmentPreview}
+                            alt={attachment.name}
+                            className="h-10 w-10 rounded-lg object-cover ring-1 ring-slate-200"
+                          />
+                        ) : (
+                          <span className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-500 ring-1 ring-slate-200">
+                            Anexo
+                          </span>
+                        )}
+                        <span className="font-semibold text-slate-900">{attachment.name}</span>
+                        <span className="text-slate-400">{formatBytes(attachment.size)}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => {
+                          setAttachment(null)
+                          setAttachmentError(null)
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = ''
+                          }
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                        Remover
+                      </Button>
+                    </div>
+                  )}
+                  {attachmentError && <p className="text-xs text-red-600">{attachmentError}</p>}
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                    <span>Enter para enviar • Shift+Enter para nova linha</span>
+                    {sending && <span>Enviando...</span>}
+                  </div>
                 </div>
               </div>
             </>
@@ -612,7 +806,96 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
               />
             </div>
           )}
-        </div>
+        </section>
+
+        <aside className="hidden h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:flex">
+          {activeConversa ? (
+            <>
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-slate-900">Sobre</h3>
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="mt-4 flex flex-col items-center text-center">
+                <Avatar className="h-20 w-20">
+                  <AvatarFallback className="bg-slate-900 text-lg font-semibold text-white">
+                    {getInitials(activeConversa.name, activeConversa.phone)}
+                  </AvatarFallback>
+                </Avatar>
+                <p className="mt-3 text-base font-semibold text-slate-900">
+                  {activeConversa.name || 'Contato sem nome'}
+                </p>
+                <p className="text-xs text-slate-500">Contato</p>
+              </div>
+
+              <div className="mt-5 space-y-3 text-sm text-slate-600">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <Phone className="h-4 w-4" />
+                    Telefone
+                  </div>
+                  <span className="font-medium text-slate-900">
+                    {formatPhone(activeConversa.phone)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <MessageCircle className="h-4 w-4" />
+                    Canal
+                  </div>
+                  <span className="font-medium text-slate-900">
+                    {activeConversa.is_whatsapp ? 'WhatsApp' : 'Mensagem'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <CalendarDays className="h-4 w-4" />
+                    Último contato
+                  </div>
+                  <span className="font-medium text-slate-900">
+                    {activeConversa.last_message_at
+                      ? new Date(activeConversa.last_message_at).toLocaleDateString('pt-BR')
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <p className="text-sm font-semibold text-slate-900">Arquivos compartilhados</p>
+                {sharedMedia.length ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {sharedMedia.map((media, idx) => {
+                      const src = media.thumbnailUrl || media.url || ''
+                      const label = media.fileName || media.mimeType || 'Imagem'
+                      return (
+                        <button
+                          key={`${src}-${idx}`}
+                          type="button"
+                          className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                          onClick={() => {
+                            if (src) setLightbox({ src, label })
+                          }}
+                        >
+                          <img src={src} alt={label} className="h-24 w-full object-cover" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Nenhuma mídia compartilhada até agora.
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center text-center text-sm text-slate-500">
+              Selecione uma conversa para ver os detalhes.
+            </div>
+          )}
+        </aside>
       </div>
 
       {lightbox && (
@@ -624,7 +907,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
             <button
               type="button"
               onClick={() => setLightbox(null)}
-              className="absolute -top-4 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-muted-foreground shadow-lg"
+              className="absolute -top-4 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-slate-500 shadow-lg"
               aria-label="Fechar imagem"
             >
               ×
@@ -632,7 +915,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
             <img
               src={lightbox.src}
               alt={lightbox.label}
-              className="max-h-[90vh] w-full rounded-2xl bg-white object-contain ring-1 ring-border/70"
+              className="max-h-[90vh] w-full rounded-2xl bg-white object-contain ring-1 ring-slate-200"
             />
             <p className="mt-2 text-center text-xs text-white/80">{lightbox.label}</p>
           </div>
