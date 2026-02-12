@@ -118,24 +118,55 @@ export const normalizePhoneToBR = (phone?: string | null): string | null => {
   return `55${digits}`
 }
 
-export const getContactProfilePicture = async (phone?: string | null): Promise<string | null> => {
-  const normalized = normalizePhoneToBR(phone)
-  if (!normalized) return null
-  if (!hasZapiConfig()) return null
-
-  const data = await zapiGet<ZapiProfilePictureResponse[]>(
-    `profile-picture?phone=${encodeURIComponent(normalized)}`
-  )
-  const link = Array.isArray(data) ? data[0]?.link : null
-  return link ?? null
+const parseProfilePictureLink = (data: unknown): string | null => {
+  if (Array.isArray(data)) {
+    const link = (data[0] as ZapiProfilePictureResponse | undefined)?.link
+    return link ?? null
+  }
+  if (data && typeof data === 'object' && 'link' in (data as any)) {
+    return (data as ZapiProfilePictureResponse).link ?? null
+  }
+  return null
 }
 
-export const getContactMetadata = async (phone?: string | null): Promise<ZapiContactMetadata | null> => {
-  const normalized = normalizePhoneToBR(phone)
-  if (!normalized) return null
-  if (!hasZapiConfig()) return null
+const buildPhoneCandidates = (phone?: string | null): string[] => {
+  if (!phone) return []
+  const digits = phone.replace(/\D/g, '')
+  const normalized = normalizePhoneToBR(digits)
+  const candidates = new Set<string>()
+  if (normalized) candidates.add(normalized)
+  if (digits) candidates.add(digits)
+  if (normalized && normalized.startsWith('55')) {
+    candidates.add(normalized.slice(2))
+  }
+  return Array.from(candidates)
+}
 
-  return zapiGet<ZapiContactMetadata>(`contacts/${encodeURIComponent(normalized)}`)
+export const getContactProfilePicture = async (phone?: string | null): Promise<string | null> => {
+  if (!hasZapiConfig()) return null
+  const candidates = buildPhoneCandidates(phone)
+  for (const candidate of candidates) {
+    const data = await zapiGet<unknown>(
+      `profile-picture?phone=${encodeURIComponent(candidate)}`
+    ).catch(() => null)
+    const link = parseProfilePictureLink(data)
+    if (link) return link
+  }
+  return null
+}
+
+export const getContactMetadata = async (
+  phone?: string | null
+): Promise<ZapiContactMetadata | null> => {
+  if (!hasZapiConfig()) return null
+  const candidates = buildPhoneCandidates(phone)
+  for (const candidate of candidates) {
+    const data = await zapiGet<ZapiContactMetadata>(
+      `contacts/${encodeURIComponent(candidate)}`
+    ).catch(() => null)
+    if (data) return data
+  }
+  return null
 }
 
 export const modifyChat = async (
