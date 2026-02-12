@@ -10,6 +10,7 @@ type ZapiIncoming = {
   status?: string
   notification?: string
   waitingMessage?: boolean
+  ids?: string[]
   phone?: string
   from?: string
   remoteJid?: string
@@ -82,6 +83,11 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
 
 const normalizeCallbackType = (value?: string | null) =>
   value ? value.replace(/\s+/g, '').toLowerCase() : ''
+
+const normalizeMessageStatus = (value?: string | null) => {
+  if (!value) return null
+  return value.trim().toLowerCase()
+}
 
 const hasMessagePayload = (payload: ZapiIncoming): boolean => {
   const textValue =
@@ -270,7 +276,60 @@ export async function POST(req: NextRequest) {
 
   const callbackType = normalizeCallbackType(payload.type)
   const isReceivedCallback = callbackType === 'receivedcallback'
+  const isStatusCallback = callbackType === 'messagestatuscallback'
   const hasMessage = hasMessagePayload(payload)
+
+  if (isStatusCallback) {
+    const ids = Array.isArray(payload.ids)
+      ? payload.ids.filter(Boolean)
+      : payload.messageId
+        ? [payload.messageId]
+        : []
+    const normalizedStatus = normalizeMessageStatus(payload.status)
+
+    if (!ids.length || !normalizedStatus) {
+      logWarn('zapi webhook status missing ids/status', {
+        tag: 'api/webhooks/zapi',
+        requestId,
+        host,
+        ownerId,
+        phone,
+        status: payload.status,
+      })
+      return NextResponse.json({ ok: true, ignored: 'status_missing_data' }, { status: 200 })
+    }
+
+    const { error } = await supabaseAdmin
+      .from('messages')
+      .update({ status: normalizedStatus })
+      .eq('owner_id', ownerId)
+      .in('provider_message_id', ids)
+
+    if (error) {
+      logError('zapi webhook status update_error', {
+        tag: 'api/webhooks/zapi',
+        requestId,
+        host,
+        ownerId,
+        phone,
+        status: normalizedStatus,
+        error: error.message,
+      })
+      return NextResponse.json({ message: error.message }, { status: 500 })
+    }
+
+    logInfo('zapi webhook status updated', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      ownerId,
+      phone,
+      status: normalizedStatus,
+      count: ids.length,
+    })
+
+    return NextResponse.json({ ok: true }, { status: 200 })
+  }
 
   if (!isReceivedCallback && !hasMessage) {
     logInfo('zapi webhook ignored non-message event', {

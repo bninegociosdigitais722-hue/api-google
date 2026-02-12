@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { resolveOwnerId } from '../../../../lib/tenant'
+import { getContactProfilePicture, hasZapiConfig } from '../../../../lib/zapi'
 import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 type Conversa = {
@@ -10,11 +11,35 @@ type Conversa = {
   name: string | null
   is_whatsapp: boolean | null
   last_message_at: string | null
+  photo_url?: string | null
   last_message?: {
     body: string
     direction: 'in' | 'out'
     created_at: string
   } | null
+}
+
+const fetchProfilePictures = async (phones: string[]) => {
+  const results: Record<string, string | null> = {}
+  if (!hasZapiConfig() || phones.length === 0) return results
+
+  const unique = Array.from(new Set(phones))
+  const concurrency = 5
+  let cursor = 0
+
+  const workers = Array.from({ length: Math.min(concurrency, unique.length) }).map(async () => {
+    while (cursor < unique.length) {
+      const phone = unique[cursor++]
+      try {
+        results[phone] = await getContactProfilePicture(phone)
+      } catch {
+        results[phone] = null
+      }
+    }
+  })
+
+  await Promise.all(workers)
+  return results
 }
 
 export const runtime = 'nodejs'
@@ -71,9 +96,13 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const phones = contacts?.map((c) => c.phone) ?? []
+  const photos = await fetchProfilePictures(phones)
+
   const conversas: Conversa[] =
     contacts?.map((c) => ({
       ...c,
+      photo_url: photos[c.phone] ?? null,
       last_message: messagesMap.get(c.id) ?? null,
     })) ?? []
 

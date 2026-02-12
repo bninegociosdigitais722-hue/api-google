@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 
 import EmptyState from '@/components/EmptyState'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -31,6 +31,7 @@ export type Conversa = {
   name: string | null
   is_whatsapp: boolean | null
   last_message_at: string | null
+  photo_url?: string | null
   last_message?: {
     body: string
     direction: 'in' | 'out'
@@ -112,6 +113,19 @@ const formatLastActive = (value: string | null | undefined) => {
     return `Hoje às ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
   }
   return `Último contato em ${date.toLocaleDateString('pt-BR')}`
+}
+
+const formatMessageStatus = (value?: string | null) => {
+  if (!value) return ''
+  const normalized = value.trim().toUpperCase()
+  const map: Record<string, string> = {
+    SENT: 'Enviada',
+    RECEIVED: 'Entregue',
+    READ: 'Lida',
+    READ_BY_ME: 'Lida por você',
+    PLAYED: 'Ouvida',
+  }
+  return map[normalized] ?? value
 }
 
 const MAX_ATTACHMENT_SIZE_MB = 8
@@ -534,6 +548,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
+                        {c.photo_url && (
+                          <AvatarImage src={c.photo_url} alt={c.name ?? 'Contato'} />
+                        )}
                         <AvatarFallback
                           className={cn(
                             'text-xs font-semibold',
@@ -609,6 +626,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
               <header className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-11 w-11">
+                    {activeConversa.photo_url && (
+                      <AvatarImage
+                        src={activeConversa.photo_url}
+                        alt={activeConversa.name ?? 'Contato'}
+                      />
+                    )}
                     <AvatarFallback className="bg-slate-900 text-sm font-semibold text-white">
                       {getInitials(activeConversa.name, activeConversa.phone)}
                     </AvatarFallback>
@@ -683,6 +706,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   >
                     {m.direction === 'in' && (
                       <Avatar className="h-7 w-7">
+                        {activeConversa.photo_url && (
+                          <AvatarImage
+                            src={activeConversa.photo_url}
+                            alt={activeConversa.name ?? 'Contato'}
+                          />
+                        )}
                         <AvatarFallback className="bg-slate-200 text-[10px] font-semibold text-slate-600">
                           {getInitials(activeConversa.name, activeConversa.phone)}
                         </AvatarFallback>
@@ -705,6 +734,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         )}
                       >
                         {new Date(m.created_at).toLocaleString('pt-BR')}
+                        {m.direction === 'out' && m.status && (
+                          <span> • {formatMessageStatus(m.status)}</span>
+                        )}
                       </p>
                     </div>
                     {m.direction === 'out' && (
@@ -820,6 +852,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
               <div className="mt-4 flex flex-col items-center text-center">
                 <Avatar className="h-20 w-20">
+                  {activeConversa.photo_url && (
+                    <AvatarImage
+                      src={activeConversa.photo_url}
+                      alt={activeConversa.name ?? 'Contato'}
+                    />
+                  )}
                   <AvatarFallback className="bg-slate-900 text-lg font-semibold text-white">
                     {getInitials(activeConversa.name, activeConversa.phone)}
                   </AvatarFallback>

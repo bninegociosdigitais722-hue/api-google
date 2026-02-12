@@ -15,6 +15,10 @@ type ZapiConfig = {
   clientToken: string
 }
 
+type ZapiProfilePictureResponse = {
+  link?: string | null
+}
+
 const ensureEnv = (name: string): string => {
   const value = process.env[name]
   if (!value) {
@@ -23,11 +27,34 @@ const ensureEnv = (name: string): string => {
   return value
 }
 
+export const hasZapiConfig = () =>
+  Boolean(process.env.ZAPI_INSTANCE_ID && process.env.ZAPI_TOKEN && process.env.ZAPI_CLIENT_TOKEN)
+
 const getZapiConfig = (): ZapiConfig => ({
   instanceId: ensureEnv('ZAPI_INSTANCE_ID'),
   token: ensureEnv('ZAPI_TOKEN'),
   clientToken: ensureEnv('ZAPI_CLIENT_TOKEN'),
 })
+
+const zapiGet = async <T>(path: string): Promise<T> => {
+  const { instanceId, token, clientToken } = getZapiConfig()
+  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/${path}`
+
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Client-Token': clientToken,
+    },
+  })
+
+  if (!resp.ok) {
+    const text = await resp.text()
+    throw new Error(`Z-API respondeu ${resp.status}: ${text || resp.statusText}`)
+  }
+
+  return (await resp.json()) as T
+}
 
 const zapiPost = async <T>(path: string, payload: Record<string, any>): Promise<T> => {
   const { instanceId, token, clientToken } = getZapiConfig()
@@ -58,6 +85,18 @@ export const normalizePhoneToBR = (phone?: string | null): string | null => {
   // Adiciona DDI 55 se não estiver presente.
   if (digits.startsWith('55')) return digits
   return `55${digits}`
+}
+
+export const getContactProfilePicture = async (phone?: string | null): Promise<string | null> => {
+  const normalized = normalizePhoneToBR(phone)
+  if (!normalized) return null
+  if (!hasZapiConfig()) return null
+
+  const data = await zapiGet<ZapiProfilePictureResponse[]>(
+    `profile-picture?phone=${encodeURIComponent(normalized)}`
+  )
+  const link = Array.isArray(data) ? data[0]?.link : null
+  return link ?? null
 }
 
 export const phoneExistsBatch = async (phones: string[]): Promise<Map<string, boolean>> => {
