@@ -185,7 +185,9 @@ export default function ConsultasClient({
 
             <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">Tipo de estabelecimento</label>
+                <label className="flex min-h-[24px] items-center text-sm font-semibold text-foreground">
+                  Tipo de estabelecimento
+                </label>
                 <Input
                   placeholder="açougue, supermercado, padaria"
                   {...register('tipo')}
@@ -194,7 +196,7 @@ export default function ConsultasClient({
                 {errors.tipo && <p className="text-xs text-red-600">{errors.tipo.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="flex items-center justify-between text-sm font-semibold text-foreground">
+                <label className="flex min-h-[24px] items-center justify-between text-sm font-semibold text-foreground">
                   <span>Localização</span>
                   <span className="text-xs font-normal text-muted-foreground">bairro, cidade ou CEP</span>
                 </label>

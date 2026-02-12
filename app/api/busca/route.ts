@@ -15,6 +15,9 @@ type PlaceSummary = {
 
 type WhatsappStatus = Map<string, boolean>
 
+const MIN_RADIUS_METERS = 3000
+const MAX_RADIUS_METERS = 50000
+
 const normalizeType = (value: string): string | undefined => {
   const normalized = value
     .toLowerCase()
@@ -25,6 +28,49 @@ const normalizeType = (value: string): string | undefined => {
     .slice(0, 60)
 
   return normalized || undefined
+}
+
+const toRadians = (value: number) => (value * Math.PI) / 180
+
+const haversineDistanceMeters = (
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+) => {
+  const earthRadius = 6371000
+  const deltaLat = toRadians(to.lat - from.lat)
+  const deltaLng = toRadians(to.lng - from.lng)
+  const lat1 = toRadians(from.lat)
+  const lat2 = toRadians(to.lat)
+
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.sin(deltaLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return earthRadius * c
+}
+
+const resolveRadius = (
+  center: { lat: number; lng: number },
+  viewport?: { northeast: { lat: number; lng: number }; southwest: { lat: number; lng: number } }
+) => {
+  if (!viewport) {
+    return MIN_RADIUS_METERS
+  }
+
+  const radius = Math.max(
+    haversineDistanceMeters(center, viewport.northeast),
+    haversineDistanceMeters(center, viewport.southwest),
+    haversineDistanceMeters(center, {
+      lat: viewport.northeast.lat,
+      lng: viewport.southwest.lng,
+    }),
+    haversineDistanceMeters(center, {
+      lat: viewport.southwest.lat,
+      lng: viewport.northeast.lng,
+    })
+  )
+
+  return Math.min(Math.max(Math.round(radius), MIN_RADIUS_METERS), MAX_RADIUS_METERS)
 }
 
 export const runtime = 'nodejs'
@@ -57,7 +103,12 @@ export async function GET(req: NextRequest) {
   const tipoText = tipo.trim()
   const localizacaoText = localizacao.trim()
 
-  const fetchCoords = async (): Promise<{ lat: number; lng: number } | null> => {
+  const fetchCoords = async (): Promise<{
+    lat: number
+    lng: number
+    radius: number
+    source: 'geocode' | 'textsearch'
+  } | null> => {
     try {
       const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
         localizacaoText
@@ -66,10 +117,13 @@ export async function GET(req: NextRequest) {
       const geocodeResponse = await fetch(geocodeUrl)
       const geocodeJson = await geocodeResponse.json()
 
+      const firstResult = geocodeJson.results?.[0]
+
       log('geocode_response', {
         status: geocodeJson.status,
         results: geocodeJson.results?.length ?? 0,
-        firstResult: geocodeJson.results?.[0]?.formatted_address,
+        firstResult: firstResult?.formatted_address,
+        firstTypes: firstResult?.types ?? [],
         errorMessage: geocodeJson.error_message,
       })
 
@@ -80,7 +134,17 @@ export async function GET(req: NextRequest) {
       }
 
       if (geocodeJson.status === 'OK' && geocodeJson.results?.length) {
-        return geocodeJson.results[0].geometry.location
+        const geometry = firstResult?.geometry
+        const location = geometry?.location
+        if (location?.lat && location?.lng) {
+          const viewport = geometry?.bounds ?? geometry?.viewport
+          return {
+            lat: location.lat,
+            lng: location.lng,
+            radius: resolveRadius(location, viewport),
+            source: 'geocode',
+          }
+        }
       }
     } catch (err) {
       log('geocode_error', { error: (err as Error)?.message })
@@ -110,9 +174,15 @@ export async function GET(req: NextRequest) {
       }
 
       if (textJson.status === 'OK' && Array.isArray(textJson.results) && textJson.results.length) {
-        const loc = textJson.results[0].geometry?.location
+        const firstText = textJson.results[0]
+        const loc = firstText.geometry?.location
         if (loc?.lat && loc?.lng) {
-          return loc
+          return {
+            lat: loc.lat,
+            lng: loc.lng,
+            radius: MIN_RADIUS_METERS,
+            source: 'textsearch',
+          }
         }
       }
     } catch (err) {
@@ -135,11 +205,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    log('coords_found', { lat: coords.lat, lng: coords.lng })
+    log('coords_found', {
+      lat: coords.lat,
+      lng: coords.lng,
+      radius: coords.radius,
+      source: coords.source,
+    })
 
     const nearbyUrl = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json')
     nearbyUrl.searchParams.set('location', `${coords.lat},${coords.lng}`)
-    nearbyUrl.searchParams.set('radius', '3000')
+    nearbyUrl.searchParams.set('radius', String(coords.radius))
     const normalizedType = normalizeType(tipoText)
     if (normalizedType) {
       nearbyUrl.searchParams.set('type', normalizedType)
@@ -185,7 +260,8 @@ export async function GET(req: NextRequest) {
       return { results: collected.slice(0, maxResults) }
     }
 
-    const nearbyData = await fetchNearbyPages(nearbyUrl, 30)
+    const maxResults = coords.radius >= 15000 ? 60 : 30
+    const nearbyData = await fetchNearbyPages(nearbyUrl, maxResults)
 
     if ('error' in nearbyData) {
       return NextResponse.json(
@@ -202,7 +278,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ resultados: [] }, { status: 200, headers: { 'Cache-Control': 's-maxage=120, stale-while-revalidate=120' } })
     }
 
-    const limitedResults = nearbyData.results.slice(0, 30)
+    const limitedResults = nearbyData.results.slice(0, maxResults)
 
     const detailed = await Promise.all(
       limitedResults.map(async (place: any) => {
