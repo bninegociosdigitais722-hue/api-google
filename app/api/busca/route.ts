@@ -17,6 +17,7 @@ type WhatsappStatus = Map<string, boolean>
 
 const MIN_RADIUS_METERS = 3000
 const MAX_RADIUS_METERS = 50000
+const MIN_RESULTS_BEFORE_FALLBACK = 8
 
 const normalizeType = (value: string): string | undefined => {
   const normalized = value
@@ -274,11 +275,91 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    if (!nearbyData.results || nearbyData.results.length === 0) {
+    const textSearchUrl = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json')
+    textSearchUrl.searchParams.set('query', `${tipoText} em ${localizacaoText}`)
+    textSearchUrl.searchParams.set('language', 'pt-BR')
+    textSearchUrl.searchParams.set('region', 'br')
+    textSearchUrl.searchParams.set('key', apiKey)
+    if (coords.radius > MIN_RADIUS_METERS) {
+      textSearchUrl.searchParams.set('location', `${coords.lat},${coords.lng}`)
+      textSearchUrl.searchParams.set('radius', String(coords.radius))
+    }
+
+    const fetchTextSearchPages = async (url: URL, maxResults = 60) => {
+      const collected: any[] = []
+      let pageUrl: URL | null = new URL(url.toString())
+
+      while (pageUrl && collected.length < maxResults) {
+        const resp = await fetch(pageUrl.toString())
+        const json = await resp.json()
+
+        log('textsearch_results', {
+          status: json.status,
+          results: json.results?.length ?? 0,
+          firstResult: json.results?.[0]?.name,
+          errorMessage: json.error_message,
+          pageTokenPresent: Boolean(json.next_page_token),
+        })
+
+        if (json.status === 'REQUEST_DENIED') {
+          return { error: json.error_message }
+        }
+
+        if (Array.isArray(json.results)) {
+          collected.push(...json.results)
+        }
+
+        if (json.next_page_token && collected.length < maxResults) {
+          await new Promise((r) => setTimeout(r, 1500))
+          pageUrl = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json')
+          pageUrl.searchParams.set('pagetoken', json.next_page_token)
+          pageUrl.searchParams.set('key', apiKey)
+        } else {
+          pageUrl = null
+        }
+      }
+
+      return { results: collected.slice(0, maxResults) }
+    }
+
+    const mergeResults = (primary: any[], secondary: any[]) => {
+      const byId = new Map<string, any>()
+      for (const item of [...primary, ...secondary]) {
+        const id = item?.place_id
+        if (!id || byId.has(id)) continue
+        byId.set(id, item)
+      }
+      return Array.from(byId.values())
+    }
+
+    let combinedResults = Array.isArray(nearbyData.results) ? nearbyData.results : []
+    const shouldFallbackToText =
+      coords.radius >= 15000 || combinedResults.length < MIN_RESULTS_BEFORE_FALLBACK
+
+    if (shouldFallbackToText) {
+      const textData = await fetchTextSearchPages(textSearchUrl, maxResults)
+      if ('error' in textData) {
+        log('textsearch_error', { error: textData.error })
+        if (combinedResults.length === 0) {
+          return NextResponse.json(
+            {
+              message:
+                textData.error ||
+                'Google retornou REQUEST_DENIED na Places Text Search. Verifique as restrições da chave (IP/domínio) e se as APIs estão liberadas.',
+            },
+            { status: 502 }
+          )
+        }
+      } else {
+        combinedResults = mergeResults(combinedResults, textData.results ?? [])
+      }
+    }
+
+    if (combinedResults.length === 0) {
       return NextResponse.json({ resultados: [] }, { status: 200, headers: { 'Cache-Control': 's-maxage=120, stale-while-revalidate=120' } })
     }
 
-    const limitedResults = nearbyData.results.slice(0, maxResults)
+    const limitedResults = combinedResults.slice(0, maxResults)
 
     const detailed = await Promise.all(
       limitedResults.map(async (place: any) => {

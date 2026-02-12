@@ -11,6 +11,7 @@ type BodyPayload = {
   name?: string | null
   template?: string | null
   force?: boolean
+  photoUrl?: string | null
   attachment?: {
     data: string
     mimeType?: string | null
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest) {
     name,
     template,
     force,
+    photoUrl,
     attachment,
   }: BodyPayload = await req.json().catch(() => ({}))
   const templateId = template?.trim() || 'supercotacao_demo'
@@ -158,19 +160,55 @@ Posso te explicar rapidinho como funciona?`
 
   const ensureContact = async (phone: string) => {
     const trimmedName = typeof name === 'string' ? name.trim() : ''
+    const trimmedPhoto = typeof photoUrl === 'string' ? photoUrl.trim() : ''
+    const now = new Date().toISOString()
+
+    const { data: existing } = await db
+      .from('contacts')
+      .select('id, last_outbound_template, name, photo_url')
+      .eq('owner_id', ownerId)
+      .eq('phone', phone)
+      .maybeSingle()
+
+    if (existing?.id) {
+      const updates: Record<string, any> = {}
+      if (trimmedName && !existing.name) {
+        updates.name = trimmedName
+      }
+      if (trimmedPhoto && !existing.photo_url) {
+        updates.photo_url = trimmedPhoto
+        updates.photo_updated_at = now
+      }
+      if (Object.keys(updates).length > 0) {
+        const { error: updateError } = await db
+          .from('contacts')
+          .update(updates)
+          .eq('id', existing.id)
+          .eq('owner_id', ownerId)
+        if (updateError) {
+          throw new Error(updateError.message || 'Erro ao atualizar contato')
+        }
+      }
+      return { id: existing.id as number, lastTemplate: (existing as any).last_outbound_template as string | null }
+    }
+
     const payload: Record<string, any> = {
       owner_id: ownerId,
       phone,
       is_whatsapp: true,
-      last_message_at: new Date().toISOString(),
+      last_message_at: now,
     }
     if (trimmedName) {
       payload.name = trimmedName
     }
+    if (trimmedPhoto) {
+      payload.photo_url = trimmedPhoto
+      payload.photo_updated_at = now
+    }
 
     const { data, error } = await db
       .from('contacts')
-      .upsert(payload, { onConflict: 'owner_id,phone' })
+      .insert(payload)
       .select('id, last_outbound_template')
       .single()
 
@@ -248,6 +286,7 @@ Posso te explicar rapidinho como funciona?`
           last_message_at: new Date().toISOString(),
           last_outbound_template: templateId,
           last_outbound_at: new Date().toISOString(),
+          is_whatsapp: true,
         })
         .eq('id', contactId)
         .eq('owner_id', ownerId)

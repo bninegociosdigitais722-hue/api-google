@@ -390,6 +390,7 @@ export default function ConsultasClient({
                               phones: [item.telefone],
                               name: item.nome,
                               template: 'supercotacao_demo',
+                              photoUrl: item.fotoUrl ?? null,
                             }),
                           })
                           const data = await resp.json()
@@ -435,16 +436,17 @@ export default function ConsultasClient({
                           if (!item.telefone) return
                           setSendingPhone(item.telefone)
                           try {
-                            const resp = await fetch(`${apiPrefix}/atendimento/send`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                phones: [item.telefone],
-                                name: item.nome,
-                                template: 'supercotacao_demo',
-                                force: true,
-                              }),
-                            })
+                          const resp = await fetch(`${apiPrefix}/atendimento/send`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              phones: [item.telefone],
+                              name: item.nome,
+                              template: 'supercotacao_demo',
+                              force: true,
+                              photoUrl: item.fotoUrl ?? null,
+                            }),
+                          })
                             const data = await resp.json()
                             if (!resp.ok) throw new Error(data.message || 'Falha ao reenviar')
                             setResultados((prev) =>
