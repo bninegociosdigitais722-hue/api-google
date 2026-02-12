@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 
 import EmptyState from '@/components/EmptyState'
+import PageHeader from '@/components/PageHeader'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -216,7 +217,7 @@ const renderMedia = (
         <img
           src={src}
           alt={label}
-          className="max-h-64 w-full cursor-zoom-in rounded-xl bg-white object-contain ring-1 ring-border/70"
+          className="max-h-64 w-full cursor-zoom-in rounded-xl bg-card object-contain ring-1 ring-border/70"
           loading="lazy"
         />
       </button>
@@ -231,7 +232,7 @@ const renderMedia = (
   if (media.type === 'document' && media.url) {
     return (
       <a
-        className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border/70 hover:bg-muted/40"
+        className="mt-2 inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border/70 hover:bg-muted/40"
         href={media.url}
         target="_blank"
         rel="noreferrer"
@@ -250,7 +251,7 @@ const renderMedia = (
   if (media.url) {
     return (
       <a
-        className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border/70 hover:bg-muted/40"
+        className="mt-2 inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border/70 hover:bg-muted/40"
         href={media.url}
         target="_blank"
         rel="noreferrer"
@@ -658,17 +659,21 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Atendimento"
+        description="Acompanhe conversas, envie mensagens e organize o histórico com seus clientes."
+      />
       <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]">
-        <section className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="panel-card flex min-h-[520px] flex-col p-4 lg:h-[calc(100vh-12rem)] lg:min-h-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-slate-900 text-xs font-semibold text-white">
+                <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
                   RL
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-semibold text-slate-900">Equipe Radar</p>
+                <p className="text-sm font-semibold text-foreground">Equipe Radar</p>
                 <div className="flex items-center gap-2 text-xs text-emerald-600">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   Disponível
@@ -687,7 +692,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
           <div className="mt-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -729,8 +734,8 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     className={cn(
                       'w-full rounded-xl border px-3 py-2 text-left transition',
                       active
-                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                        : 'border-transparent hover:bg-slate-100'
+                        ? 'border-primary/30 bg-primary text-primary-foreground shadow-card'
+                        : 'border-transparent hover:bg-muted/60'
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -741,7 +746,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         <AvatarFallback
                           className={cn(
                             'text-xs font-semibold',
-                            active ? 'bg-white/15 text-white' : 'bg-slate-200 text-slate-600'
+                            active ? 'bg-white/15 text-primary-foreground' : 'bg-muted text-muted-foreground'
                           )}
                         >
                           {getInitials(c.name, c.phone)}
@@ -752,7 +757,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                           <p
                             className={cn(
                               'truncate text-sm font-semibold',
-                              active ? 'text-white' : 'text-slate-900'
+                              active ? 'text-primary-foreground' : 'text-foreground'
                             )}
                           >
                             {c.name || 'Contato sem nome'}
@@ -764,7 +769,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                             <span
                               className={cn(
                                 'text-xs',
-                                active ? 'text-white/70' : 'text-slate-400'
+                                active ? 'text-primary-foreground/70' : 'text-muted-foreground'
                               )}
                             >
                               {timeLabel}
@@ -776,11 +781,11 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                             'line-clamp-1 text-xs',
                             presence
                               ? active
-                                ? 'text-white/80'
+                                ? 'text-primary-foreground/80'
                                 : 'text-emerald-600'
                               : active
-                                ? 'text-white/70'
-                                : 'text-slate-500'
+                                ? 'text-primary-foreground/70'
+                                : 'text-muted-foreground'
                           )}
                         >
                           {showPrefix ? 'Você: ' : ''}
@@ -793,7 +798,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         <span
                           className={cn(
                             'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                            active ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'
+                            active
+                              ? 'bg-primary-foreground/20 text-primary-foreground'
+                              : 'bg-emerald-50 text-emerald-600'
                           )}
                         >
                           WhatsApp
@@ -805,7 +812,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute right-2 top-2 h-7 w-7 text-slate-400 opacity-0 transition hover:text-red-600 group-hover:opacity-100"
+                    className="absolute right-2 top-2 h-7 w-7 text-muted-foreground opacity-0 transition hover:text-red-600 group-hover:opacity-100"
                     onClick={() => deleteConversa(c.phone)}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -816,10 +823,10 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           </div>
         </section>
 
-        <section className="flex h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="panel-card flex min-h-[520px] flex-col p-4 lg:h-[calc(100vh-12rem)] lg:min-h-0">
           {activeConversa ? (
             <>
-              <header className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <header className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-11 w-11">
                     {activeConversa.photo_url && (
@@ -828,19 +835,19 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         alt={activeConversa.name ?? 'Contato'}
                       />
                     )}
-                    <AvatarFallback className="bg-slate-900 text-sm font-semibold text-white">
+                    <AvatarFallback className="bg-foreground text-sm font-semibold text-background">
                       {getInitials(activeConversa.name, activeConversa.phone)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {activeConversa.name || 'Contato sem nome'}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       {activePresence?.label ?? activeStatusLabel}
                       {loadingContactMeta && <span className="ml-2 text-[10px]">Atualizando...</span>}
                     </p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                       <span>{formatPhone(activeConversa.phone)}</span>
                       {activeConversa.is_whatsapp && <span>• WhatsApp</span>}
                     </div>
@@ -865,7 +872,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-slate-400 hover:text-red-600"
+                    className="text-muted-foreground hover:text-red-600"
                     onClick={() => runChatAction('clear')}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -873,7 +880,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 </div>
               </header>
 
-              <div className="mt-4 flex-1 min-h-0 space-y-4 overflow-y-auto rounded-2xl bg-slate-50 p-4">
+              <div className="mt-4 flex-1 min-h-0 space-y-4 overflow-y-auto rounded-2xl bg-muted/40 p-4">
                 {!loadingMessages && messages.length === 0 && (
                   <EmptyState
                     icon={AlertTriangle}
@@ -897,17 +904,17 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                             alt={activeConversa.name ?? 'Contato'}
                           />
                         )}
-                        <AvatarFallback className="bg-slate-200 text-[10px] font-semibold text-slate-600">
+                        <AvatarFallback className="bg-muted text-[10px] font-semibold text-muted-foreground">
                           {getInitials(activeConversa.name, activeConversa.phone)}
                         </AvatarFallback>
                       </Avatar>
                     )}
                     <div
                       className={cn(
-                        'group relative max-w-[72%] rounded-2xl px-3 py-2 text-sm shadow-sm',
+                        'group relative max-w-[72%] rounded-2xl px-3 py-2 text-sm shadow-card',
                         m.direction === 'out'
-                          ? 'bg-slate-900 text-white'
-                          : 'border border-slate-200 bg-white text-slate-700'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'border border-border/60 bg-card text-foreground'
                       )}
                     >
                       {m.provider_message_id && (
@@ -915,8 +922,8 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                           type="button"
                           onClick={() => deleteMessageItem(m)}
                           className={cn(
-                            'absolute -right-2 -top-2 hidden h-6 w-6 items-center justify-center rounded-full border bg-white text-slate-400 shadow-sm transition hover:text-red-600 group-hover:inline-flex',
-                            m.direction === 'out' && 'bg-slate-800 text-white'
+                            'absolute -right-2 -top-2 hidden h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm transition hover:text-red-600 group-hover:inline-flex',
+                            m.direction === 'out' && 'bg-primary text-primary-foreground'
                           )}
                           aria-label="Excluir mensagem"
                         >
@@ -925,7 +932,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                       )}
 
                       {m.deleted_at ? (
-                        <p className="italic text-slate-400">Mensagem apagada</p>
+                        <p className="italic text-muted-foreground">Mensagem apagada</p>
                       ) : (
                         <>
                           {m.body && <p className="whitespace-pre-line leading-snug">{m.body}</p>}
@@ -935,7 +942,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                       <p
                         className={cn(
                           'mt-2 text-[10px]',
-                          m.direction === 'out' ? 'text-white/70' : 'text-slate-400'
+                          m.direction === 'out'
+                            ? 'text-primary-foreground/70'
+                            : 'text-muted-foreground'
                         )}
                       >
                         {new Date(m.created_at).toLocaleString('pt-BR')}
@@ -951,7 +960,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     </div>
                     {m.direction === 'out' && (
                       <Avatar className="h-7 w-7">
-                        <AvatarFallback className="bg-slate-900 text-[10px] font-semibold text-white">
+                        <AvatarFallback className="bg-primary text-[10px] font-semibold text-primary-foreground">
                           EU
                         </AvatarFallback>
                       </Avatar>
@@ -960,10 +969,10 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 ))}
               </div>
 
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="mt-3 rounded-2xl border border-border/60 bg-card p-3">
                 <div className="flex flex-col gap-2">
                   <div className="flex items-end gap-3">
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-100">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground shadow-sm hover:bg-muted/60">
                       <Paperclip className="h-3 w-3" />
                       Anexar
                       <input
@@ -997,21 +1006,21 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                   </div>
 
                   {attachment && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2 text-xs text-muted-foreground ring-1 ring-border/60">
                       <div className="flex items-center gap-2">
                         {attachmentPreview ? (
                           <img
                             src={attachmentPreview}
                             alt={attachment.name}
-                            className="h-10 w-10 rounded-lg object-cover ring-1 ring-slate-200"
+                            className="h-10 w-10 rounded-lg object-cover ring-1 ring-border/60"
                           />
                         ) : (
-                          <span className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-500 ring-1 ring-slate-200">
+                          <span className="rounded-full bg-card px-2 py-1 text-[10px] text-muted-foreground ring-1 ring-border/60">
                             Anexo
                           </span>
                         )}
-                        <span className="font-semibold text-slate-900">{attachment.name}</span>
-                        <span className="text-slate-400">{formatBytes(attachment.size)}</span>
+                        <span className="font-semibold text-foreground">{attachment.name}</span>
+                        <span className="text-muted-foreground">{formatBytes(attachment.size)}</span>
                       </div>
                       <Button
                         type="button"
@@ -1032,7 +1041,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     </div>
                   )}
                   {attachmentError && <p className="text-xs text-red-600">{attachmentError}</p>}
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
                     <span>Enter para enviar • Shift+Enter para nova linha</span>
                     {sending && <span>Enviando...</span>}
                   </div>
@@ -1050,11 +1059,11 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
           )}
         </section>
 
-        <aside className="hidden h-[calc(100vh-7rem)] min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:flex">
+        <aside className="panel-card hidden min-h-[520px] flex-col p-4 lg:h-[calc(100vh-12rem)] lg:min-h-0 xl:flex">
           {activeConversa ? (
             <>
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold text-slate-900">Sobre</h3>
+                <h3 className="text-base font-semibold text-foreground">Sobre</h3>
                 <Button variant="ghost" size="icon">
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
@@ -1068,41 +1077,41 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                       alt={activeConversa.name ?? 'Contato'}
                     />
                   )}
-                  <AvatarFallback className="bg-slate-900 text-lg font-semibold text-white">
+                  <AvatarFallback className="bg-foreground text-lg font-semibold text-background">
                     {getInitials(activeConversa.name, activeConversa.phone)}
                   </AvatarFallback>
                 </Avatar>
-                <p className="mt-3 text-base font-semibold text-slate-900">
+                <p className="mt-3 text-base font-semibold text-foreground">
                   {activeConversa.name || 'Contato sem nome'}
                 </p>
-                <p className="text-xs text-slate-500">Contato</p>
+                <p className="text-xs text-muted-foreground">Contato</p>
               </div>
 
-              <div className="mt-5 space-y-3 text-sm text-slate-600">
+              <div className="mt-5 space-y-3 text-sm text-muted-foreground">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <Phone className="h-4 w-4" />
                     Telefone
                   </div>
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-foreground">
                     {formatPhone(activeConversa.phone)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <MessageCircle className="h-4 w-4" />
                     Canal
                   </div>
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-foreground">
                     {activeConversa.is_whatsapp ? 'WhatsApp' : 'Mensagem'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <CalendarDays className="h-4 w-4" />
                     Último contato
                   </div>
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-foreground">
                     {activeConversa.last_message_at
                       ? new Date(activeConversa.last_message_at).toLocaleDateString('pt-BR')
                       : '—'}
@@ -1110,43 +1119,43 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 </div>
                 {activeConversa.notify && (
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <MessageCircle className="h-4 w-4" />
                       Nome WhatsApp
                     </div>
-                    <span className="font-medium text-slate-900">{activeConversa.notify}</span>
+                    <span className="font-medium text-foreground">{activeConversa.notify}</span>
                   </div>
                 )}
                 {activeConversa.short && (
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <MessageCircle className="h-4 w-4" />
                       Short
                     </div>
-                    <span className="font-medium text-slate-900">{activeConversa.short}</span>
+                    <span className="font-medium text-foreground">{activeConversa.short}</span>
                   </div>
                 )}
                 {activeConversa.vname && (
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <MessageCircle className="h-4 w-4" />
                       Nome salvo
                     </div>
-                    <span className="font-medium text-slate-900">{activeConversa.vname}</span>
+                    <span className="font-medium text-foreground">{activeConversa.vname}</span>
                   </div>
                 )}
                 {activeConversa.about && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                    <span className="block text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                  <div className="rounded-xl border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                    <span className="block text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                       Recado
                     </span>
-                    <p className="mt-1 text-sm text-slate-700">{activeConversa.about}</p>
+                    <p className="mt-1 text-sm text-foreground">{activeConversa.about}</p>
                   </div>
                 )}
               </div>
 
               <div className="mt-6">
-                <p className="text-sm font-semibold text-slate-900">Arquivos compartilhados</p>
+                <p className="text-sm font-semibold text-foreground">Arquivos compartilhados</p>
                 {sharedMedia.length ? (
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {sharedMedia.map((media, idx) => {
@@ -1156,7 +1165,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                         <button
                           key={`${src}-${idx}`}
                           type="button"
-                          className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                          className="overflow-hidden rounded-xl border border-border/60 bg-card"
                           onClick={() => {
                             if (src) setLightbox({ src, label })
                           }}
@@ -1167,14 +1176,14 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                     })}
                   </div>
                 ) : (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Nenhuma mídia compartilhada até agora.
                   </p>
                 )}
               </div>
             </>
           ) : (
-            <div className="flex h-full items-center justify-center text-center text-sm text-slate-500">
+            <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
               Selecione uma conversa para ver os detalhes.
             </div>
           )}
@@ -1183,14 +1192,14 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
       {lightbox && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={() => setLightbox(null)}
         >
           <div className="relative w-full max-w-5xl" onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
               onClick={() => setLightbox(null)}
-              className="absolute -top-4 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-slate-500 shadow-lg"
+              className="absolute -top-4 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-card text-lg font-semibold text-muted-foreground shadow-lg"
               aria-label="Fechar imagem"
             >
               ×
@@ -1198,7 +1207,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
             <img
               src={lightbox.src}
               alt={lightbox.label}
-              className="max-h-[90vh] w-full rounded-2xl bg-white object-contain ring-1 ring-slate-200"
+              className="max-h-[90vh] w-full rounded-2xl bg-card object-contain ring-1 ring-border/60"
             />
             <p className="mt-2 text-center text-xs text-white/80">{lightbox.label}</p>
           </div>
