@@ -38,30 +38,31 @@ type PortalConsultasSummary = {
   }>
 }
 
-const getConsultasSummaryCached = unstable_cache(
-  async (ownerId: string, limit: number): Promise<ConsultasSummary> => {
-    const [contactsRes, countRes] = await Promise.all([
-      supabaseAdmin
-        .from('contacts')
-        .select('id, name, phone, is_whatsapp, last_outbound_template, photo_url')
-        .eq('owner_id', ownerId)
-        .order('last_message_at', { ascending: false })
-        .limit(limit),
-      supabaseAdmin
-        .from('contacts')
-        .select('id', { count: 'estimated', head: true })
-        .eq('owner_id', ownerId),
-    ])
+const getConsultasSummaryCached = (ownerId: string, limit: number) =>
+  unstable_cache(
+    async (): Promise<ConsultasSummary> => {
+      const [contactsRes, countRes] = await Promise.all([
+        supabaseAdmin
+          .from('contacts')
+          .select('id, name, phone, is_whatsapp, last_outbound_template, photo_url')
+          .eq('owner_id', ownerId)
+          .order('last_message_at', { ascending: false })
+          .limit(limit),
+        supabaseAdmin
+          .from('contacts')
+          .select('id', { count: 'estimated', head: true })
+          .eq('owner_id', ownerId),
+      ])
 
-    return {
-      ownerId,
-      contacts: contactsRes.data ?? [],
-      count: typeof countRes.count === 'number' ? countRes.count : null,
-    }
-  },
-  ['consultas-summary'],
-  { revalidate: 60 }
-)
+      return {
+        ownerId,
+        contacts: contactsRes.data ?? [],
+        count: typeof countRes.count === 'number' ? countRes.count : null,
+      }
+    },
+    ['consultas-summary', ownerId, String(limit)],
+    { revalidate: 60 }
+  )()
 
 export const getConsultasSummary = async (
   host: string | null,
@@ -89,36 +90,37 @@ export const getConsultasSummary = async (
   return summary
 }
 
-const getPortalConsultasSummaryCached = unstable_cache(
-  async (
-    ownerId: string,
-    contactsLimit: number,
-    messagesLimit: number
-  ): Promise<PortalConsultasSummary> => {
-    const [contactsRes, messagesRes] = await Promise.all([
-      supabaseAdmin
-        .from('contacts')
-        .select('id, name, phone, is_whatsapp, last_message_at')
-        .eq('owner_id', ownerId)
-        .order('last_message_at', { ascending: false })
-        .limit(contactsLimit),
-      supabaseAdmin
-        .from('messages')
-        .select('id, contact_id, body, direction, status, created_at')
-        .eq('owner_id', ownerId)
-        .order('created_at', { ascending: false })
-        .limit(messagesLimit),
-    ])
+const getPortalConsultasSummaryCached = (
+  ownerId: string,
+  contactsLimit: number,
+  messagesLimit: number
+) =>
+  unstable_cache(
+    async (): Promise<PortalConsultasSummary> => {
+      const [contactsRes, messagesRes] = await Promise.all([
+        supabaseAdmin
+          .from('contacts')
+          .select('id, name, phone, is_whatsapp, last_message_at')
+          .eq('owner_id', ownerId)
+          .order('last_message_at', { ascending: false })
+          .limit(contactsLimit),
+        supabaseAdmin
+          .from('messages')
+          .select('id, contact_id, body, direction, status, created_at')
+          .eq('owner_id', ownerId)
+          .order('created_at', { ascending: false })
+          .limit(messagesLimit),
+      ])
 
-    return {
-      ownerId,
-      contacts: contactsRes.data ?? [],
-      messages: messagesRes.data ?? [],
-    }
-  },
-  ['portal-consultas-summary'],
-  { revalidate: 60 }
-)
+      return {
+        ownerId,
+        contacts: contactsRes.data ?? [],
+        messages: messagesRes.data ?? [],
+      }
+    },
+    ['portal-consultas-summary', ownerId, String(contactsLimit), String(messagesLimit)],
+    { revalidate: 60 }
+  )()
 
 export const getPortalConsultasSummary = async (
   host: string | null,
