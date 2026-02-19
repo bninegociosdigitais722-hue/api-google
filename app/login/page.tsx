@@ -1,3 +1,5 @@
+import LoginForm from './LoginForm'
+
 export const metadata = {
   title: 'Login | Radar Local',
 }
@@ -5,9 +7,10 @@ export const metadata = {
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
-      <div className="w-full max-w-md space-y-4 rounded-3xl border border-border/70 bg-card/80 p-8 shadow-card">
+      <div className="w-full max-w-md space-y-6 rounded-3xl border border-border/70 bg-card/80 p-8 shadow-card">
         <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Autenticação</p>
         <h1 className="text-2xl font-semibold text-foreground">Entrar</h1>
+        <LoginForm />
         <p className="text-sm text-muted-foreground">
           Configure o Supabase Auth para emitir tokens com <code className="font-mono">app_metadata.owner_id</code> e
           roles. Após autenticar, o cookie <code className="font-mono">sb-access-token</code> será lido no server e

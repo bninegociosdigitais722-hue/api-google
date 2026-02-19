@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { isActiveRoute, resolveNavGroups } from '@/components/shellNav'
+import LogoutButton from '@/components/LogoutButton'
 
 export default function SidebarLayout() {
   const pathname = usePathname()
@@ -108,9 +109,12 @@ export default function SidebarLayout() {
             <p className="text-sm font-semibold text-foreground">Radar Local</p>
             <p className="text-xs text-muted-foreground">Conta principal</p>
           </div>
-          <Button variant="ghost" size="icon" className="rounded-xl text-muted-foreground">
-            <Settings className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="rounded-xl text-muted-foreground">
+              <Settings className="h-4 w-4" />
+            </Button>
+            <LogoutButton />
+          </div>
         </div>
       </div>
     </aside>
