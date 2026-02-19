@@ -289,6 +289,8 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const activePhoneRef = useRef<string | null>(activePhone)
   const messagesCacheRef = useRef<Record<string, Message[]>>({ ...initialMessagesByPhone })
+  const didInitialMessagesRef = useRef(false)
+  const didInitialMetaRef = useRef(false)
 
   const activeConversa = useMemo(
     () => conversas.find((c) => c.phone === activePhone) ?? null,
@@ -329,6 +331,10 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
   useEffect(() => {
     if (!activePhone) return
+    if (!didInitialMetaRef.current) {
+      didInitialMetaRef.current = true
+      return
+    }
     const controller = new AbortController()
     setLoadingContactMeta(true)
 
@@ -426,27 +432,13 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   }
 
   useEffect(() => {
-    if (!conversas.length) {
-      loadConversas()
-    }
-    const interval = setInterval(() => {
-      loadConversas()
-    }, 5000)
-    return () => clearInterval(interval)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!activePhone) return
-    const interval = setInterval(() => {
-      loadMessages(activePhone)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [activePhone]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
     if (activePhone) {
       const cached = messagesCacheRef.current[activePhone]
       setMessages(cached ?? [])
+      if (!didInitialMessagesRef.current) {
+        didInitialMessagesRef.current = true
+        return
+      }
       loadMessages(activePhone)
     }
   }, [activePhone]) // eslint-disable-line react-hooks/exhaustive-deps

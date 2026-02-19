@@ -1,11 +1,11 @@
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 import { Badge } from '@/components/ui/badge'
 import { resolveRequestId } from '@/lib/logger'
 import { createServerPerf } from '@/lib/perf'
-import { resolveOwnerId } from '@/lib/tenant'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { TenantResolutionError } from '@/lib/tenant'
+import { getConsultasSummary } from '@/lib/summary'
 
 type ConsultasCountProps = {
   perfLabel: string
@@ -22,20 +22,16 @@ export default async function ConsultasCount({ perfLabel, path }: ConsultasCount
   })
   perf.mark('start')
 
-  const supabaseServer = await createSupabaseServerClient()
-  const { data: sessionData } = await supabaseServer.auth.getSession()
-  perf.mark('session')
-  const user = sessionData.session?.user ?? null
-
-  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
-  const db = user ? supabaseServer : supabaseAdmin
-
-  const { count } = await db
-    .from('contacts')
-    .select('id', { count: 'estimated', head: true })
-    .eq('owner_id', ownerId)
-  perf.mark('queries')
+  let count: number | null = null
+  try {
+    const summary = await getConsultasSummary(host)
+    count = summary.count
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      redirect('/403')
+    }
+  }
+  perf.mark('summary')
   perf.mark('render')
   perf.done()
 

@@ -1,11 +1,11 @@
 import ConsultasClient from '@/app/(shell)/(admin)/admin/consultas/ConsultasClient'
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 import { resolveRequestId } from '@/lib/logger'
 import { createServerPerf } from '@/lib/perf'
-import { resolveOwnerId } from '@/lib/tenant'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { TenantResolutionError } from '@/lib/tenant'
+import { getConsultasSummary } from '@/lib/summary'
 
 type ConsultasDataProps = {
   apiPrefix: string
@@ -23,25 +23,18 @@ export default async function ConsultasData({ apiPrefix, perfLabel, path }: Cons
   })
   perf.mark('start')
 
-  const supabaseServer = await createSupabaseServerClient()
-  const { data: sessionData } = await supabaseServer.auth.getSession()
-  perf.mark('session')
-  const user = sessionData.session?.user ?? null
-
-  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
-  const db = user ? supabaseServer : supabaseAdmin
-
-  const { data: results, error } = await db
-    .from('contacts')
-    .select('id, name, phone, is_whatsapp, last_outbound_template, photo_url', {})
-    .eq('owner_id', ownerId)
-    .order('last_message_at', { ascending: false })
-    .limit(100)
-  perf.mark('queries')
-
-  const contatos = results ?? []
-  const hasError = error
+  let contatos: any[] = []
+  let hasError: { message?: string } | null = null
+  try {
+    const summary = await getConsultasSummary(host, 100)
+    contatos = summary.contacts
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      redirect('/403')
+    }
+    hasError = err as { message?: string }
+  }
+  perf.mark('summary')
 
   const sentMap = Object.fromEntries(
     contatos

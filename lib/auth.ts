@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from './supabase/server'
-import { resolveOwnerId } from './tenant'
+import { resolveTenant, TenantResolutionError } from './tenant'
 
 export type AuthContext = {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
@@ -17,11 +17,28 @@ export async function getAuthContext(opts?: { allowUnauthenticated?: boolean }) 
   const session = data.session
   const user = session?.user ?? null
   const ownerFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const role = ((user?.app_metadata as any)?.role as string | undefined) ?? null
+  const roleFromUser = ((user?.app_metadata as any)?.role as string | undefined) ?? null
 
   const h = await headers()
   const host = h.get('x-forwarded-host') ?? h.get('host')
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerFromUser })
+  let ownerId = ''
+  let role: string | null = roleFromUser
+  try {
+    const resolved = await resolveTenant({
+      host,
+      userId: user?.id ?? null,
+      userOwnerId: ownerFromUser ?? null,
+      supabase,
+      allowUnauthenticated: opts?.allowUnauthenticated,
+    })
+    ownerId = resolved.ownerId
+    role = resolved.role ?? roleFromUser
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      redirect('/403')
+    }
+    throw err
+  }
 
   if (!session && !opts?.allowUnauthenticated) {
     redirect('/login')

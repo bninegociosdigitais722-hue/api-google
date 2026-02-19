@@ -4,7 +4,8 @@ import { resolveRequestId } from '@/lib/logger'
 import { createServerPerf } from '@/lib/perf'
 import supabaseAdmin from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { resolveOwnerId } from '@/lib/tenant'
+import { resolveOwnerId, TenantResolutionError } from '@/lib/tenant'
+import { redirect } from 'next/navigation'
 
 export const metadata = {
   title: 'Suporte | Portal do Cliente',
@@ -24,7 +25,21 @@ export default async function SuporteClientePage() {
   perf.mark('session')
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+  let ownerId = ''
+  try {
+    ownerId = await resolveOwnerId({
+      host,
+      userId: user?.id ?? null,
+      userOwnerId: ownerIdFromUser ?? null,
+      supabase: supabaseServer,
+    })
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      redirect('/403')
+    }
+    throw err
+  }
+  perf.mark('resolveOwner')
   const db = user ? supabaseServer : supabaseAdmin
 
   const { data: messages } = await db

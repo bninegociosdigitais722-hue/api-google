@@ -2,9 +2,11 @@ import { headers } from 'next/headers'
 import AtendimentoClient, { Conversa, Message } from './AtendimentoClient'
 import { resolveRequestId } from '@/lib/logger'
 import { createServerPerf } from '@/lib/perf'
-import { resolveOwnerId } from '@/lib/tenant'
+import { resolveOwnerId, TenantResolutionError } from '@/lib/tenant'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import supabaseAdmin from '@/lib/supabase/admin'
+import { getAtendimentoSummary } from '@/lib/summary'
+import { redirect } from 'next/navigation'
 
 export const metadata = {
   title: 'Atendimento | Radar Local',
@@ -26,7 +28,21 @@ export default async function AtendimentoPage() {
   perf.mark('session')
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+  let ownerId = ''
+  try {
+    ownerId = await resolveOwnerId({
+      host,
+      userId: user?.id ?? null,
+      userOwnerId: ownerIdFromUser ?? null,
+      supabase: supabaseServer,
+    })
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      redirect('/403')
+    }
+    throw err
+  }
+  perf.mark('resolveOwner')
 
   const db = user ? supabaseServer : supabaseAdmin
 
@@ -34,62 +50,33 @@ export default async function AtendimentoPage() {
   let messagesByPhone: Record<string, Message[]> = {}
 
   try {
-    const contactsRes = await db
-      .from('contacts')
-      .select('id, phone, name, is_whatsapp, last_message_at')
-      .eq('owner_id', ownerId)
-      .order('last_message_at', { ascending: false })
-      .limit(100)
-
-    const contacts = contactsRes.data ?? []
-    const contactIds = contacts.map((c) => c.id)
-    const firstContact = contacts[0]
-
-    const lastMessagesPromise = contactIds.length
-      ? db
-          .from('last_messages_by_contact')
-          .select('contact_id, body, direction, created_at, status')
-          .eq('owner_id', ownerId)
-          .in('contact_id', contactIds)
-      : Promise.resolve({ data: [] })
-
-    const prefetchPromise = firstContact
-      ? db
-          .from('messages')
-          .select('id, contact_id, body, direction, status, created_at, media')
-          .eq('contact_id', firstContact.id)
-          .eq('owner_id', ownerId)
-          .order('created_at', { ascending: true })
-          .limit(100)
-      : Promise.resolve(null)
-
-    const [{ data: lastMessages }, prefetchRes] = await Promise.all([
-      lastMessagesPromise,
-      prefetchPromise,
-    ])
+    const summary = await getAtendimentoSummary({ ownerId, db })
     perf.mark('queries')
 
-    const messagesMap = new Map<number, Conversa['last_message']>()
-    if (lastMessages) {
-      for (const msg of lastMessages) {
-        if (!msg.body || !String(msg.body).trim()) continue
-        messagesMap.set(msg.contact_id, {
-          body: msg.body,
-          direction: msg.direction as 'in' | 'out',
-          created_at: msg.created_at,
-        })
-      }
-    }
-
-    conversas = contacts.map((c) => ({
-      ...c,
-      last_message: messagesMap.get(c.id) ?? null,
+    conversas = summary.contacts.map((c: any) => ({
+      id: c.id,
+      phone: c.phone,
+      name: c.name ?? null,
+      is_whatsapp: c.is_whatsapp ?? null,
+      last_message_at: c.last_message_at ?? null,
+      photo_url: c.photo_url ?? null,
+      about: c.about ?? null,
+      notify: c.notify ?? null,
+      short: c.short ?? null,
+      vname: c.vname ?? null,
+      presence_status: c.presence_status ?? null,
+      presence_updated_at: c.presence_updated_at ?? null,
+      chat_unread: c.chat_unread ?? null,
+      last_message: c.last_message_body
+        ? {
+            body: c.last_message_body,
+            direction: c.last_message_direction as 'in' | 'out',
+            created_at: c.last_message_created_at,
+          }
+        : null,
     }))
 
-    const firstPhone = firstContact?.phone
-    if (firstPhone && prefetchRes?.data) {
-      messagesByPhone[firstPhone] = prefetchRes.data as Message[]
-    }
+    messagesByPhone = summary.messagesByPhone as Record<string, Message[]>
     perf.mark('render')
     perf.done()
   } catch (err) {

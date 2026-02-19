@@ -1,8 +1,8 @@
-import { timingSafeEqual } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
 import { normalizePhoneToBR } from '../../../../lib/zapi'
-import { resolveOwnerId } from '../../../../lib/tenant'
+import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
 import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 type ZapiIncoming = {
@@ -226,10 +226,10 @@ const extractMedia = (payload: ZapiIncoming): MessageMedia | null => {
   return null
 }
 
-const verifySignature = (req: NextRequest) => {
-  const expected = process.env.ZAPI_WEBHOOK_TOKEN
+const verifySignature = (req: NextRequest, rawBody: string) => {
+  const expected = process.env.ZAPI_WEBHOOK_SECRET || process.env.ZAPI_WEBHOOK_TOKEN
   if (!expected) {
-    throw new Error('ZAPI_WEBHOOK_TOKEN ausente - fail hard.')
+    throw new Error('ZAPI_WEBHOOK_SECRET ausente - fail hard.')
   }
 
   const candidates = [
@@ -239,18 +239,22 @@ const verifySignature = (req: NextRequest) => {
     req.headers.get('client-token'),
     req.headers.get('authorization')?.replace(/^Bearer\s+/i, ''),
     req.headers.get('x-api-key'),
-  ].filter(Boolean) as string[]
+  ]
+    .filter(Boolean)
+    .map((value) => value!.replace(/^sha256=/i, '').trim())
 
   if (!candidates.length) return false
 
-  const expectedBuf = Buffer.from(expected)
-  for (const cand of candidates) {
-    const providedBuf = Buffer.from(cand)
-    if (expectedBuf.length === providedBuf.length && timingSafeEqual(expectedBuf, providedBuf)) {
-      return true
-    }
+  const hmacHex = createHmac('sha256', expected).update(rawBody).digest('hex')
+  const hmacBase64 = createHmac('sha256', expected).update(rawBody).digest('base64')
+
+  const safeCompare = (left: string, right: string) => {
+    const leftBuf = Buffer.from(left)
+    const rightBuf = Buffer.from(right)
+    return leftBuf.length === rightBuf.length && timingSafeEqual(leftBuf, rightBuf)
   }
-  return false
+
+  return candidates.some((cand) => safeCompare(cand, hmacHex) || safeCompare(cand, hmacBase64))
 }
 
 export const runtime = 'nodejs'
@@ -258,8 +262,23 @@ export const runtime = 'nodejs'
 export async function POST(req: NextRequest) {
   const requestId = resolveRequestId(req.headers)
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const noStoreHeaders = { 'Cache-Control': 'no-store' }
 
-  if (!verifySignature(req)) {
+  const rawBody = await req.text()
+  let signatureOk = false
+  try {
+    signatureOk = verifySignature(req, rawBody)
+  } catch (err) {
+    logError('zapi webhook signature_error', {
+      tag: 'api/webhooks/zapi',
+      requestId,
+      host,
+      error: (err as Error)?.message,
+    })
+    return NextResponse.json({ message: 'Webhook secret ausente.' }, { status: 500, headers: noStoreHeaders })
+  }
+
+  if (!signatureOk) {
     logWarn('zapi webhook invalid signature', {
       tag: 'api/webhooks/zapi',
       requestId,
@@ -272,10 +291,21 @@ export async function POST(req: NextRequest) {
         xapikey: req.headers.get('x-api-key') ? 'present' : 'missing',
       },
     })
-    // Modo permissivo: segue o processamento para não perder mensagens em ambiente demo
+    return NextResponse.json(
+      { message: 'Assinatura inválida.' },
+      { status: 401, headers: noStoreHeaders }
+    )
   }
 
-  const payload = (await req.json().catch(() => ({}))) as ZapiIncoming
+  let payload: ZapiIncoming = {}
+  try {
+    payload = rawBody ? (JSON.parse(rawBody) as ZapiIncoming) : {}
+  } catch (err) {
+    return NextResponse.json(
+      { message: 'Payload inválido.' },
+      { status: 400, headers: noStoreHeaders }
+    )
+  }
 
   const phone = extractPhone(payload)
 
@@ -286,10 +316,21 @@ export async function POST(req: NextRequest) {
       host,
       raw: payload,
     })
-    return NextResponse.json({ message: 'Telefone não identificado no payload.' }, { status: 400 })
+    return NextResponse.json(
+      { message: 'Telefone não identificado no payload.' },
+      { status: 400, headers: noStoreHeaders }
+    )
   }
 
-  const ownerId = resolveOwnerId({ host })
+  let ownerId = ''
+  try {
+    ownerId = await resolveOwnerId({ host })
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      return NextResponse.json({ message: err.message }, { status: 403, headers: noStoreHeaders })
+    }
+    throw err
+  }
 
   const callbackType = normalizeCallbackType(payload.type)
   const isReceivedCallback = callbackType === 'receivedcallback'
@@ -314,7 +355,10 @@ export async function POST(req: NextRequest) {
         phone,
         status: payload.status,
       })
-      return NextResponse.json({ ok: true, ignored: 'status_missing_data' }, { status: 200 })
+      return NextResponse.json(
+        { ok: true, ignored: 'status_missing_data' },
+        { status: 200, headers: noStoreHeaders }
+      )
     }
 
     const { error } = await supabaseAdmin
@@ -334,7 +378,10 @@ export async function POST(req: NextRequest) {
         status: normalizedStatus,
         error: error.message,
       })
-      return NextResponse.json({ message: error.message }, { status: 500 })
+      return NextResponse.json(
+        { message: error.message },
+        { status: 500, headers: noStoreHeaders }
+      )
     }
 
     logInfo('zapi webhook status updated', {
@@ -347,13 +394,16 @@ export async function POST(req: NextRequest) {
       count: ids.length,
     })
 
-    return NextResponse.json({ ok: true }, { status: 200 })
+    return NextResponse.json({ ok: true }, { status: 200, headers: noStoreHeaders })
   }
 
   if (isPresenceCallback) {
     const presence = normalizePresenceStatus(payload.status)
     if (!presence) {
-      return NextResponse.json({ ok: true, ignored: 'presence_missing_status' }, { status: 200 })
+      return NextResponse.json(
+        { ok: true, ignored: 'presence_missing_status' },
+        { status: 200, headers: noStoreHeaders }
+      )
     }
 
     const lastSeen = parsePresenceLastSeen(payload.lastSeen)
@@ -499,7 +549,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json(
       { message: contactError?.message || 'Erro ao salvar contato.' },
-      { status: 500 }
+      { status: 500, headers: noStoreHeaders }
     )
   }
 
@@ -519,7 +569,7 @@ export async function POST(req: NextRequest) {
       .select('id')
 
     if (!updateError && updated && updated.length > 0) {
-      return NextResponse.json({ ok: true, edited: true }, { status: 200 })
+      return NextResponse.json({ ok: true, edited: true }, { status: 200, headers: noStoreHeaders })
     }
   }
 
@@ -533,7 +583,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (existing?.id) {
-      return NextResponse.json({ ok: true, deduped: true }, { status: 200 })
+      return NextResponse.json({ ok: true, deduped: true }, { status: 200, headers: noStoreHeaders })
     }
   }
 
@@ -561,7 +611,10 @@ export async function POST(req: NextRequest) {
       contactId: contact.id,
       error: insertError.message,
     })
-    return NextResponse.json({ message: insertError.message }, { status: 500 })
+    return NextResponse.json(
+      { message: insertError.message },
+      { status: 500, headers: noStoreHeaders }
+    )
   }
 
   await supabaseAdmin
@@ -582,9 +635,12 @@ export async function POST(req: NextRequest) {
     contactId: contact.id,
   })
 
-  return NextResponse.json({ ok: true }, { status: 200 })
+  return NextResponse.json({ ok: true }, { status: 200, headers: noStoreHeaders })
 }
 
 export function GET() {
-  return NextResponse.json({ ok: true }, { status: 200 })
+  return NextResponse.json(
+    { ok: true },
+    { status: 200, headers: { 'Cache-Control': 'no-store' } }
+  )
 }

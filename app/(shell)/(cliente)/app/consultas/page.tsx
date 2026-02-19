@@ -2,9 +2,9 @@ import { headers } from 'next/headers'
 import PageHeader from '@/components/PageHeader'
 import { resolveRequestId } from '@/lib/logger'
 import { createServerPerf } from '@/lib/perf'
-import supabaseAdmin from '@/lib/supabase/admin'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { resolveOwnerId } from '@/lib/tenant'
+import { getPortalConsultasSummary } from '@/lib/summary'
+import { TenantResolutionError } from '@/lib/tenant'
+import { redirect } from 'next/navigation'
 
 export const metadata = {
   title: 'Consultas | Portal do Cliente',
@@ -19,32 +19,19 @@ export default async function ConsultasClientePage() {
     host,
   })
   perf.mark('start')
-  const supabaseServer = await createSupabaseServerClient()
-  const { data: sessionData } = await supabaseServer.auth.getSession()
-  perf.mark('session')
-  const user = sessionData.session?.user ?? null
-  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
-  const db = user ? supabaseServer : supabaseAdmin
-
-  const [contactsRes, messagesRes] = await Promise.all([
-    db
-      .from('contacts')
-      .select('id, name, phone, is_whatsapp, last_message_at')
-      .eq('owner_id', ownerId)
-      .order('last_message_at', { ascending: false })
-      .limit(50),
-    db
-      .from('messages')
-      .select('id, contact_id, body, direction, status, created_at')
-      .eq('owner_id', ownerId)
-      .order('created_at', { ascending: false })
-      .limit(30),
-  ])
-  perf.mark('queries')
-
-  const contacts = contactsRes.data ?? []
-  const messages = messagesRes.data ?? []
+  let contacts: any[] = []
+  let messages: any[] = []
+  try {
+    const summary = await getPortalConsultasSummary(host)
+    contacts = summary.contacts
+    messages = summary.messages
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      redirect('/403')
+    }
+    throw err
+  }
+  perf.mark('summary')
   const contactById = new Map(contacts.map((c) => [c.id, c]))
   perf.mark('render')
   perf.done()

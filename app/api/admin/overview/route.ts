@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
-import { resolveOwnerId } from '../../../../lib/tenant'
+import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
 import { logError, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 export const runtime = 'nodejs'
@@ -14,13 +14,29 @@ export async function GET(req: NextRequest) {
 
   if (!user) {
     logWarn('admin/overview no session', { tag: 'api/admin/overview', requestId, host })
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json(
+      { message: 'Unauthorized' },
+      { status: 401, headers: { 'Cache-Control': 'no-store' } }
+    )
   }
 
-  const ownerId = resolveOwnerId({
-    host,
-    userOwnerId: (user?.app_metadata as any)?.owner_id,
-  })
+  let ownerId = ''
+  try {
+    ownerId = await resolveOwnerId({
+      host,
+      userId: user?.id ?? null,
+      userOwnerId: (user?.app_metadata as any)?.owner_id ?? null,
+      supabase,
+    })
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      return NextResponse.json(
+        { message: err.message },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } }
+      )
+    }
+    throw err
+  }
 
   const baseSelect = { count: 'exact', head: true } as const
 
@@ -39,7 +55,10 @@ export async function GET(req: NextRequest) {
       contactsError: contactsError?.message,
       messagesError: messagesError?.message,
     })
-    return NextResponse.json({ message: 'Erro ao obter métricas' }, { status: 500 })
+    return NextResponse.json(
+      { message: 'Erro ao obter métricas' },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    )
   }
 
   return NextResponse.json(
@@ -47,7 +66,12 @@ export async function GET(req: NextRequest) {
       contacts: contactsCount ?? 0,
       messages: messagesCount ?? 0,
     },
-    { status: 200, headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=60' } }
+    {
+      status: 200,
+      headers: {
+        'Cache-Control': 's-maxage=60, stale-while-revalidate=60',
+        Vary: 'Cookie, Authorization',
+      },
+    }
   )
 }
-

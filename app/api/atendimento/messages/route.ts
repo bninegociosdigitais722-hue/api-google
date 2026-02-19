@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { normalizePhoneToBR } from '../../../../lib/zapi'
-import { resolveOwnerId } from '../../../../lib/tenant'
+import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
 import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
 
 type Message = {
@@ -21,16 +21,33 @@ export const revalidate = 0
 export async function GET(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const requestId = resolveRequestId(req.headers)
+  const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+  let ownerId = ''
+  try {
+    ownerId = await resolveOwnerId({
+      host,
+      userId: user?.id ?? null,
+      userOwnerId: ownerIdFromUser ?? null,
+      supabase: supabaseServer,
+    })
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      return NextResponse.json({ message: err.message }, { status: 403, headers: noStoreHeaders })
+    }
+    throw err
+  }
   const db = user ? supabaseServer : supabaseAdmin
 
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) {
-    return NextResponse.json({ message: 'Informe phone.' }, { status: 400 })
+    return NextResponse.json(
+      { message: 'Informe phone.' },
+      { status: 400, headers: noStoreHeaders }
+    )
   }
 
   const limitParam = req.nextUrl.searchParams.get('limit')
@@ -38,7 +55,10 @@ export async function GET(req: NextRequest) {
 
   const normalized = normalizePhoneToBR(phone)
   if (!normalized) {
-    return NextResponse.json({ message: 'Telefone inválido.' }, { status: 400 })
+    return NextResponse.json(
+      { message: 'Telefone inválido.' },
+      { status: 400, headers: noStoreHeaders }
+    )
   }
 
   const { data: contact, error: contactError } = await db
@@ -59,7 +79,10 @@ export async function GET(req: NextRequest) {
       phone: normalized,
       error: contactError?.message,
     })
-    return NextResponse.json({ message: 'Contato não encontrado.' }, { status: 404 })
+    return NextResponse.json(
+      { message: 'Contato não encontrado.' },
+      { status: 404, headers: noStoreHeaders }
+    )
   }
 
   const { data: messages, error } = await db
@@ -81,7 +104,10 @@ export async function GET(req: NextRequest) {
       contactId: contact.id,
       error: error.message,
     })
-    return NextResponse.json({ message: error.message }, { status: 500 })
+    return NextResponse.json(
+      { message: error.message },
+      { status: 500, headers: noStoreHeaders }
+    )
   }
 
   logInfo('atendimento/messages ok', {
@@ -94,27 +120,50 @@ export async function GET(req: NextRequest) {
     count: messages?.length ?? 0,
   })
 
-  return NextResponse.json({ messages: messages ?? [], contact }, { status: 200 })
+  return NextResponse.json(
+    { messages: messages ?? [], contact },
+    { status: 200, headers: noStoreHeaders }
+  )
 }
 
 export async function DELETE(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const requestId = resolveRequestId(req.headers)
+  const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+  let ownerId = ''
+  try {
+    ownerId = await resolveOwnerId({
+      host,
+      userId: user?.id ?? null,
+      userOwnerId: ownerIdFromUser ?? null,
+      supabase: supabaseServer,
+    })
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      return NextResponse.json({ message: err.message }, { status: 403, headers: noStoreHeaders })
+    }
+    throw err
+  }
   const db = user ? supabaseServer : supabaseAdmin
 
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) {
-    return NextResponse.json({ message: 'Informe phone.' }, { status: 400 })
+    return NextResponse.json(
+      { message: 'Informe phone.' },
+      { status: 400, headers: noStoreHeaders }
+    )
   }
 
   const normalized = normalizePhoneToBR(phone)
   if (!normalized) {
-    return NextResponse.json({ message: 'Telefone inválido.' }, { status: 400 })
+    return NextResponse.json(
+      { message: 'Telefone inválido.' },
+      { status: 400, headers: noStoreHeaders }
+    )
   }
 
   const { data: contact, error: contactError } = await db
@@ -125,7 +174,10 @@ export async function DELETE(req: NextRequest) {
     .single()
 
   if (contactError || !contact) {
-    return NextResponse.json({ message: 'Contato não encontrado.' }, { status: 404 })
+    return NextResponse.json(
+      { message: 'Contato não encontrado.' },
+      { status: 404, headers: noStoreHeaders }
+    )
   }
 
   const { error } = await db
@@ -143,8 +195,11 @@ export async function DELETE(req: NextRequest) {
       contactId: contact.id,
       error: error.message,
     })
-    return NextResponse.json({ message: error.message }, { status: 500 })
+    return NextResponse.json(
+      { message: error.message },
+      { status: 500, headers: noStoreHeaders }
+    )
   }
 
-  return NextResponse.json({ ok: true }, { status: 200 })
+  return NextResponse.json({ ok: true }, { status: 200, headers: noStoreHeaders })
 }

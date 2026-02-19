@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { normalizePhoneToBR, sendAudio, sendDocument, sendImage, sendText, sendVideo } from '../../../../lib/zapi'
-import { resolveOwnerId } from '../../../../lib/tenant'
+import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
 import { logError, logInfo, resolveRequestId } from '../../../../lib/logger'
 
 type BodyPayload = {
@@ -110,11 +110,25 @@ export const revalidate = 0
 export async function POST(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const requestId = resolveRequestId(req.headers)
+  const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: sessionData } = await supabaseServer.auth.getSession()
   const user = sessionData.session?.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
-  const ownerId = resolveOwnerId({ host, userOwnerId: ownerIdFromUser })
+  let ownerId = ''
+  try {
+    ownerId = await resolveOwnerId({
+      host,
+      userId: user?.id ?? null,
+      userOwnerId: ownerIdFromUser ?? null,
+      supabase: supabaseServer,
+    })
+  } catch (err) {
+    if (err instanceof TenantResolutionError) {
+      return NextResponse.json({ message: err.message }, { status: 403, headers: noStoreHeaders })
+    }
+    throw err
+  }
   const db = user ? supabaseServer : supabaseAdmin
 
   const {
@@ -143,7 +157,7 @@ Posso te explicar rapidinho como funciona?`
   if (!Array.isArray(phones) || phones.length === 0 || (!trimmedMessage && !hasAttachment)) {
     return NextResponse.json(
       { message: 'Envie um array de telefones e uma mensagem ou anexo.' },
-      { status: 400 }
+      { status: 400, headers: noStoreHeaders }
     )
   }
 
@@ -154,7 +168,7 @@ Posso te explicar rapidinho como funciona?`
   if (normalizedPhones.length === 0) {
     return NextResponse.json(
       { message: 'Nenhum telefone válido após normalização.' },
-      { status: 400 }
+      { status: 400, headers: noStoreHeaders }
     )
   }
 
@@ -318,5 +332,5 @@ Posso te explicar rapidinho como funciona?`
     failed: results.filter((r) => r.status === 'failed').length,
   })
 
-  return NextResponse.json({ results }, { status: 200 })
+  return NextResponse.json({ results }, { status: 200, headers: noStoreHeaders })
 }

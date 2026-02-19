@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+
 import { findHostRule, pathAllowedForHost } from './lib/tenant'
-import { logWarn } from './lib/logger'
 import { rateLimit } from './lib/rate-limit'
 
-export default async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const rule = findHostRule(host)
   const pathname = req.nextUrl.pathname
@@ -17,12 +17,11 @@ export default async function proxy(req: NextRequest) {
     const key = `${host ?? 'unknown'}:${ip}:${pathname.split('/').slice(0, 3).join('/')}`
     const { limited } = await rateLimit({ key, limit: 120, windowMs: 60_000 })
     if (limited) {
-      logWarn('rate_limit_exceeded', { path: pathname, host, ip })
       return NextResponse.json({ message: 'Too many requests' }, { status: 429 })
     }
   }
 
-  // Redireciona raiz para prefixo padrão conforme host (ex.: admin → /admin/dashboard; app → /dashboard)
+  // Redireciona raiz para prefixo padrão conforme host.
   if (rule && pathname === '/') {
     const hasAdmin = rule.prefixes.includes('/admin')
     const hasDashboard = rule.prefixes.includes('/dashboard')
