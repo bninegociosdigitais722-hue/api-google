@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -17,6 +17,18 @@ export default function LoginForm() {
   const hasEnv =
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hash = window.location.hash
+    if (!hash) return
+    const params = new URLSearchParams(hash.replace(/^#/, ''))
+    const type = params.get('type')
+    const accessToken = params.get('access_token')
+    if (type === 'recovery' && accessToken) {
+      router.replace(`/auth/reset${hash}`)
+    }
+  }, [router])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -98,4 +110,3 @@ export default function LoginForm() {
     </form>
   )
 }
-
