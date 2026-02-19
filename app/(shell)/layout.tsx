@@ -6,8 +6,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export default async function ShellLayout({ children }: { children: ReactNode }) {
   const supabase = await createSupabaseServerClient()
-  const { data } = await supabase.auth.getSession()
-  if (!data.session) {
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data.user) {
     redirect('/login')
   }
 
