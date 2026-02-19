@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
   const requestId = resolveRequestId(req.headers)
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
-  const { data: sessionData } = await supabaseServer.auth.getSession()
-  const user = sessionData.session?.user ?? null
+  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
+  const user = userError ? null : userData.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -119,8 +119,8 @@ export async function DELETE(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
-  const { data: sessionData } = await supabaseServer.auth.getSession()
-  const user = sessionData.session?.user ?? null
+  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
+  const user = userError ? null : userData.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {

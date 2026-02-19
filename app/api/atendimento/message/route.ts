@@ -14,8 +14,8 @@ export async function DELETE(req: NextRequest) {
   const requestId = resolveRequestId(req.headers)
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
-  const { data: sessionData } = await supabaseServer.auth.getSession()
-  const user = sessionData.session?.user ?? null
+  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
+  const user = userError ? null : userData.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {

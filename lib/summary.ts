@@ -71,9 +71,9 @@ export const getConsultasSummary = async (
   const perf = createServerPerf('consultas.summary', { host })
   perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
-  const { data: sessionData } = await supabaseServer.auth.getSession()
+  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
   perf.mark('session')
-  const user = sessionData.session?.user ?? null
+  const user = userError ? null : userData.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = await resolveOwnerId({
     host,
@@ -130,9 +130,9 @@ export const getPortalConsultasSummary = async (
   const perf = createServerPerf('portal.consultas.summary', { host })
   perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
-  const { data: sessionData } = await supabaseServer.auth.getSession()
+  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
   perf.mark('session')
-  const user = sessionData.session?.user ?? null
+  const user = userError ? null : userData.user ?? null
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = await resolveOwnerId({
     host,

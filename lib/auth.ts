@@ -12,10 +12,9 @@ export type AuthContext = {
 
 export async function getAuthContext(opts?: { allowUnauthenticated?: boolean }) {
   const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase.auth.getSession()
+  const { data, error } = await supabase.auth.getUser()
   if (error) throw error
-  const session = data.session
-  const user = session?.user ?? null
+  const user = data.user ?? null
   const ownerFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const roleFromUser = ((user?.app_metadata as any)?.role as string | undefined) ?? null
 
@@ -40,7 +39,7 @@ export async function getAuthContext(opts?: { allowUnauthenticated?: boolean }) 
     throw err
   }
 
-  if (!session && !opts?.allowUnauthenticated) {
+  if (!user && !opts?.allowUnauthenticated) {
     redirect('/login')
   }
 

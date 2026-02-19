@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
   const requestId = resolveRequestId(req.headers)
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
   const supabase = await createSupabaseServerClient()
-  const { data: sessionData } = await supabase.auth.getSession()
-  const user = sessionData.session?.user ?? null
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  const user = userError ? null : userData.user ?? null
 
   if (!user) {
     logWarn('admin/overview no session', { tag: 'api/admin/overview', requestId, host })
