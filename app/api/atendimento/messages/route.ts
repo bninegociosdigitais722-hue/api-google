@@ -174,6 +174,17 @@ export async function DELETE(req: NextRequest) {
     .single()
 
   if (contactError || !contact) {
+    logWarn('atendimento/messages contact_not_found', {
+      tag: 'api/atendimento/messages',
+      requestId,
+      host,
+      ownerId,
+      userId: user?.id ?? null,
+      resourceId: null,
+      phone: normalized,
+      status: 'not_found',
+      error: contactError?.message,
+    })
     return NextResponse.json(
       { message: 'Contato não encontrado.' },
       { status: 404, headers: noStoreHeaders }
@@ -192,7 +203,10 @@ export async function DELETE(req: NextRequest) {
       requestId,
       host,
       ownerId,
+      userId: user?.id ?? null,
       contactId: contact.id,
+      resourceId: contact.id,
+      status: 'error',
       error: error.message,
     })
     return NextResponse.json(
@@ -200,6 +214,17 @@ export async function DELETE(req: NextRequest) {
       { status: 500, headers: noStoreHeaders }
     )
   }
+
+  logInfo('atendimento/messages deleted', {
+    tag: 'api/atendimento/messages',
+    requestId,
+    host,
+    ownerId,
+    userId: user?.id ?? null,
+    resourceId: contact.id,
+    phone: normalized,
+    status: 'success',
+  })
 
   return NextResponse.json({ ok: true }, { status: 200, headers: noStoreHeaders })
 }

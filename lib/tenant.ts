@@ -199,11 +199,6 @@ export const resolveTenant = async (opts: {
     throw new TenantResolutionError('Multiplos tenants. Defina owner_id no app_metadata.')
   }
 
-  if (!resolvedOwner && membershipOwners.length === 0 && claimOwnerId) {
-    resolvedOwner = claimOwnerId
-    source = 'claim'
-  }
-
   if (!resolvedOwner && !isProd() && devFallback) {
     resolvedOwner = devFallback
     source = 'dev'

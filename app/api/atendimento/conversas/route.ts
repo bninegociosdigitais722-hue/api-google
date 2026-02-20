@@ -117,6 +117,7 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const requestId = resolveRequestId(req.headers)
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
@@ -154,6 +155,17 @@ export async function DELETE(req: NextRequest) {
     .single()
 
   if (contactError || !contact) {
+    logWarn('atendimento/conversas contact_not_found', {
+      tag: 'api/atendimento/conversas',
+      requestId,
+      host,
+      ownerId,
+      userId: user?.id ?? null,
+      resourceId: null,
+      phone,
+      status: 'not_found',
+      error: contactError?.message,
+    })
     return NextResponse.json(
       { message: 'Contato não encontrado.' },
       { status: 404, headers: noStoreHeaders }
@@ -167,6 +179,17 @@ export async function DELETE(req: NextRequest) {
     .eq('owner_id', ownerId)
 
   if (deleteMsgError) {
+    logError('atendimento/conversas delete_messages_error', {
+      tag: 'api/atendimento/conversas',
+      requestId,
+      host,
+      ownerId,
+      userId: user?.id ?? null,
+      resourceId: contact.id,
+      phone,
+      status: 'error',
+      error: deleteMsgError.message,
+    })
     return NextResponse.json(
       { message: deleteMsgError.message },
       { status: 500, headers: noStoreHeaders }
@@ -180,11 +203,33 @@ export async function DELETE(req: NextRequest) {
     .eq('owner_id', ownerId)
 
   if (deleteContactError) {
+    logError('atendimento/conversas delete_contact_error', {
+      tag: 'api/atendimento/conversas',
+      requestId,
+      host,
+      ownerId,
+      userId: user?.id ?? null,
+      resourceId: contact.id,
+      phone,
+      status: 'error',
+      error: deleteContactError.message,
+    })
     return NextResponse.json(
       { message: deleteContactError.message },
       { status: 500, headers: noStoreHeaders }
     )
   }
+
+  logInfo('atendimento/conversas deleted', {
+    tag: 'api/atendimento/conversas',
+    requestId,
+    host,
+    ownerId,
+    userId: user?.id ?? null,
+    resourceId: contact.id,
+    phone,
+    status: 'success',
+  })
 
   return NextResponse.json({ ok: true }, { status: 200, headers: noStoreHeaders })
 }
