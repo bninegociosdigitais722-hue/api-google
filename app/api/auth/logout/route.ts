@@ -1,19 +1,26 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+
+import { requireEnv } from '@/lib/env'
 
 export const runtime = 'nodejs'
 
-const clearCookie = () => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  path: '/',
-  maxAge: 0,
-})
-
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const url = requireEnv('SUPABASE_URL')
+  const anonKey = requireEnv('SUPABASE_ANON_KEY')
   const response = NextResponse.json({ ok: true })
-  response.cookies.set('sb-access-token', '', clearCookie())
-  response.cookies.set('sb-refresh-token', '', clearCookie())
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll: () => req.cookies.getAll().map(({ name, value }) => ({ name, value })),
+      setAll: (cookiesToSet) => {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options)
+        })
+      },
+    },
+  })
+
+  await supabase.auth.signOut()
   return response
 }
-
