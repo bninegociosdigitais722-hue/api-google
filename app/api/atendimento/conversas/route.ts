@@ -53,14 +53,19 @@ export async function GET(req: NextRequest) {
   }
   const db = user ? supabaseServer : supabaseAdmin
 
+  const limitParam = req.nextUrl.searchParams.get('limit')
+  const offsetParam = req.nextUrl.searchParams.get('offset')
+  const limit = Math.min(Math.max(Number(limitParam) || 20, 1), 100)
+  const offset = Math.max(Number(offsetParam) || 0, 0)
+
   const { data: contacts, error } = await db
     .from('contacts')
     .select(
-      'id, phone, name, is_whatsapp, last_message_at, photo_url, about, notify, short, vname, presence_status, presence_updated_at, chat_unread'
+      'id, phone, name, is_whatsapp, last_message_at, photo_url, presence_status, presence_updated_at, chat_unread'
     )
     .eq('owner_id', ownerId)
     .order('last_message_at', { ascending: false })
-    .limit(100)
+    .range(offset, offset + limit - 1)
 
   if (error) {
     logError('atendimento/conversas contacts_error', {
@@ -110,6 +115,8 @@ export async function GET(req: NextRequest) {
     host,
     ownerId,
     count: conversas.length,
+    limit,
+    offset,
   })
 
   return NextResponse.json({ conversas }, { status: 200, headers: noStoreHeaders })

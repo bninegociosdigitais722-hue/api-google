@@ -51,7 +51,9 @@ export async function GET(req: NextRequest) {
   }
 
   const limitParam = req.nextUrl.searchParams.get('limit')
-  const limit = Math.min(Math.max(Number(limitParam) || 100, 1), 200)
+  const limit = Math.min(Math.max(Number(limitParam) || 20, 1), 200)
+  const before = req.nextUrl.searchParams.get('before')
+  const beforeValue = before && !Number.isNaN(Date.parse(before)) ? before : null
 
   const normalized = normalizePhoneToBR(phone)
   if (!normalized) {
@@ -85,15 +87,21 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const { data: messages, error } = await db
+  let query = db
     .from('messages')
     .select(
       'id, contact_id, body, direction, status, created_at, media, provider_message_id, edited_at, deleted_at'
     )
     .eq('contact_id', contact.id)
     .eq('owner_id', ownerId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(limit)
+
+  if (beforeValue) {
+    query = query.lt('created_at', beforeValue)
+  }
+
+  const { data: messages, error } = await query
 
   if (error) {
     logError('atendimento/messages list_error', {
@@ -117,6 +125,7 @@ export async function GET(req: NextRequest) {
     ownerId,
     contactId: contact.id,
     limit,
+    before: beforeValue,
     count: messages?.length ?? 0,
   })
 

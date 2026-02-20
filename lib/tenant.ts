@@ -32,6 +32,14 @@ export type TenantResolution = {
 }
 
 const isProd = () => process.env.NODE_ENV === 'production'
+const MEMBERSHIP_CACHE_TTL_MS = 60 * 1000
+const membershipsCache = new Map<
+  string,
+  {
+    expiresAt: number
+    memberships: MembershipRow[]
+  }
+>()
 
 const resolveDevFallbackOwner = () => {
   const fallback = optionalEnv('DEV_DEFAULT_OWNER_ID') || optionalEnv('DEFAULT_OWNER_ID')
@@ -108,6 +116,25 @@ const fetchMemberships = async (
   return (data as MembershipRow[]) ?? []
 }
 
+const getMembershipCacheKey = (userId: string, host?: string | null) =>
+  `${userId}:${(host ?? 'unknown').toLowerCase()}`
+
+const fetchMembershipsCached = async (
+  supabase: SupabaseClient,
+  userId: string,
+  host?: string | null
+): Promise<{ memberships: MembershipRow[]; cache: 'hit' | 'miss' }> => {
+  const now = Date.now()
+  const key = getMembershipCacheKey(userId, host)
+  const cached = membershipsCache.get(key)
+  if (cached && cached.expiresAt > now) {
+    return { memberships: cached.memberships, cache: 'hit' }
+  }
+  const memberships = await fetchMemberships(supabase, userId)
+  membershipsCache.set(key, { memberships, expiresAt: now + MEMBERSHIP_CACHE_TTL_MS })
+  return { memberships, cache: 'miss' }
+}
+
 export const resolveTenant = async (opts: {
   host?: string | null
   userId?: string | null
@@ -122,8 +149,11 @@ export const resolveTenant = async (opts: {
   const devFallback = resolveDevFallbackOwner()
 
   let memberships: MembershipRow[] = []
+  let membershipCache: 'hit' | 'miss' | 'skip' = 'skip'
   if (opts.userId && opts.supabase) {
-    memberships = await fetchMemberships(opts.supabase, opts.userId)
+    const cached = await fetchMembershipsCached(opts.supabase, opts.userId, opts.host)
+    memberships = cached.memberships
+    membershipCache = cached.cache
   }
 
   if (opts.userId && !memberships.length) {
@@ -131,6 +161,7 @@ export const resolveTenant = async (opts: {
       durationMs: Date.now() - start,
       host: opts.host ?? null,
       userId: opts.userId ?? null,
+      cache: membershipCache,
       resolved: false,
       reason: 'membership_required',
     })
@@ -156,6 +187,7 @@ export const resolveTenant = async (opts: {
           durationMs: Date.now() - start,
           host: opts.host ?? null,
           userId: opts.userId ?? null,
+          cache: membershipCache,
           resolved: false,
           reason: 'membership_required',
         })
@@ -166,6 +198,7 @@ export const resolveTenant = async (opts: {
           durationMs: Date.now() - start,
           host: opts.host ?? null,
           userId: opts.userId ?? null,
+          cache: membershipCache,
           resolved: false,
           reason: 'host_owner_mismatch',
         })
@@ -193,6 +226,7 @@ export const resolveTenant = async (opts: {
       durationMs: Date.now() - start,
       host: opts.host ?? null,
       userId: opts.userId ?? null,
+      cache: membershipCache,
       resolved: false,
       reason: 'multiple_memberships',
     })
@@ -209,6 +243,7 @@ export const resolveTenant = async (opts: {
       durationMs: Date.now() - start,
       host: opts.host ?? null,
       userId: opts.userId ?? null,
+      cache: membershipCache,
       resolved: false,
     })
     throw new TenantResolutionError('Tenant não resolvido. Complete o onboarding.')
@@ -220,6 +255,7 @@ export const resolveTenant = async (opts: {
     durationMs: Date.now() - start,
     host: opts.host ?? null,
     userId: opts.userId ?? null,
+    cache: membershipCache,
     resolved: true,
     source,
   })

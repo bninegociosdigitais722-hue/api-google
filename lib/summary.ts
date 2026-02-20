@@ -64,9 +64,23 @@ const getConsultasSummaryCached = (ownerId: string, limit: number) =>
     { revalidate: 60 }
   )()
 
+const getConsultasCountCached = (ownerId: string) =>
+  unstable_cache(
+    async (): Promise<number | null> => {
+      const { count } = await supabaseAdmin
+        .from('contacts')
+        .select('id', { count: 'estimated', head: true })
+        .eq('owner_id', ownerId)
+
+      return typeof count === 'number' ? count : null
+    },
+    ['consultas-count', ownerId],
+    { revalidate: 60 }
+  )()
+
 export const getConsultasSummary = async (
   host: string | null,
-  limit: number = 100
+  limit: number = 20
 ): Promise<ConsultasSummary> => {
   const perf = createServerPerf('consultas.summary', { host })
   perf.mark('start')
@@ -88,6 +102,29 @@ export const getConsultasSummary = async (
   perf.mark('render')
   perf.done()
   return summary
+}
+
+export const getConsultasCount = async (host: string | null): Promise<number | null> => {
+  const perf = createServerPerf('consultas.count', { host })
+  perf.mark('start')
+  const supabaseServer = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
+  perf.mark('session')
+  const user = userError ? null : userData.user ?? null
+  const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
+  const ownerId = await resolveOwnerId({
+    host,
+    userId: user?.id ?? null,
+    userOwnerId: ownerIdFromUser ?? null,
+    supabase: supabaseServer,
+  })
+  perf.mark('resolveOwner')
+
+  const count = await getConsultasCountCached(ownerId)
+  perf.mark('queries')
+  perf.mark('render')
+  perf.done()
+  return count
 }
 
 const getPortalConsultasSummaryCached = (
@@ -160,25 +197,25 @@ export const getAtendimentoSummary = async (opts: {
   const contactsRes = await opts.db
     .from('contacts_with_last_message')
     .select(
-      'id, phone, name, is_whatsapp, last_message_at, photo_url, about, notify, short, vname, presence_status, presence_updated_at, chat_unread, last_message_body, last_message_direction, last_message_created_at'
+      'id, phone, name, is_whatsapp, last_message_at, photo_url, presence_status, presence_updated_at, chat_unread, last_message_body, last_message_direction, last_message_created_at'
     )
     .eq('owner_id', opts.ownerId)
     .order('last_message_at', { ascending: false })
-    .limit(opts.contactsLimit ?? 100)
+    .limit(opts.contactsLimit ?? 20)
   perf.mark('queries')
 
   const contacts = contactsRes.data ?? []
   const firstContact = contacts[0]
   const messagesByPhone: Record<string, any[]> = {}
 
-  if (firstContact?.id) {
+  if (firstContact?.id && (opts.messagesLimit ?? 20) > 0) {
     const { data: prefetchMessages } = await opts.db
       .from('messages')
       .select('id, contact_id, body, direction, status, created_at, media')
       .eq('contact_id', firstContact.id)
       .eq('owner_id', opts.ownerId)
       .order('created_at', { ascending: true })
-      .limit(opts.messagesLimit ?? 100)
+      .limit(opts.messagesLimit ?? 20)
 
     if (prefetchMessages) {
       messagesByPhone[firstContact.phone] = prefetchMessages as any[]

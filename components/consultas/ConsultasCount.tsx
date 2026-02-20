@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { resolveRequestId } from '@/lib/logger'
 import { createServerPerf } from '@/lib/perf'
 import { TenantResolutionError } from '@/lib/tenant'
-import { getConsultasSummary } from '@/lib/summary'
+import { getConsultasCount } from '@/lib/summary'
 
 type ConsultasCountProps = {
   perfLabel: string
@@ -24,8 +24,7 @@ export default async function ConsultasCount({ perfLabel, path }: ConsultasCount
 
   let count: number | null = null
   try {
-    const summary = await getConsultasSummary(host)
-    count = summary.count
+    count = await getConsultasCount(host)
   } catch (err) {
     if (err instanceof TenantResolutionError) {
       redirect('/403')

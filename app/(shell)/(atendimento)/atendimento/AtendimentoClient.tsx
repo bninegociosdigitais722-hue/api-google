@@ -82,6 +82,9 @@ type Props = {
   initialMessagesByPhone: Record<string, Message[]>
 }
 
+const CONVERSAS_PAGE_SIZE = 20
+const MESSAGES_PAGE_SIZE = 20
+
 const formatPhone = (phone: string) => {
   if (!phone.startsWith('55')) return phone
   const digits = phone.slice(2)
@@ -268,16 +271,28 @@ const renderMedia = (
 }
 
 export default function AtendimentoClient({ initialConversas, initialMessagesByPhone }: Props) {
+  const initialActivePhone = initialConversas[0]?.phone ?? null
+  const initialActiveMessages = initialActivePhone
+    ? initialMessagesByPhone[initialActivePhone] || []
+    : []
   const [conversas, setConversas] = useState<Conversa[]>(initialConversas)
   const [loadingConversas, setLoadingConversas] = useState(false)
+  const [loadingMoreConversas, setLoadingMoreConversas] = useState(false)
+  const [hasMoreConversas, setHasMoreConversas] = useState(
+    initialConversas.length === CONVERSAS_PAGE_SIZE
+  )
+  const [conversasOffset, setConversasOffset] = useState(initialConversas.length)
   const [searchTerm, setSearchTerm] = useState('')
-  const [activePhone, setActivePhone] = useState<string | null>(
-    initialConversas[0]?.phone ?? null
-  )
-  const [messages, setMessages] = useState<Message[]>(
-    activePhone ? initialMessagesByPhone[activePhone] || [] : []
-  )
+  const [activePhone, setActivePhone] = useState<string | null>(initialActivePhone)
+  const [messages, setMessages] = useState<Message[]>(initialActiveMessages)
   const [loadingMessages, setLoadingMessages] = useState(false)
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false)
+  const [hasMoreMessages, setHasMoreMessages] = useState(
+    initialActiveMessages.length === MESSAGES_PAGE_SIZE
+  )
+  const [oldestMessageAt, setOldestMessageAt] = useState<string | null>(
+    initialActiveMessages[0]?.created_at ?? null
+  )
   const [loadingContactMeta, setLoadingContactMeta] = useState(false)
   const [composer, setComposer] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
@@ -289,8 +304,17 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const activePhoneRef = useRef<string | null>(activePhone)
   const messagesCacheRef = useRef<Record<string, Message[]>>({ ...initialMessagesByPhone })
+  const messagesMetaRef = useRef<Record<string, { oldest: string | null; hasMore: boolean }>>(
+    initialActivePhone
+      ? {
+          [initialActivePhone]: {
+            oldest: initialActiveMessages[0]?.created_at ?? null,
+            hasMore: initialActiveMessages.length === MESSAGES_PAGE_SIZE,
+          },
+        }
+      : {}
+  )
   const didInitialMessagesRef = useRef(false)
-  const didInitialMetaRef = useRef(false)
 
   const activeConversa = useMemo(
     () => conversas.find((c) => c.phone === activePhone) ?? null,
@@ -331,10 +355,6 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
 
   useEffect(() => {
     if (!activePhone) return
-    if (!didInitialMetaRef.current) {
-      didInitialMetaRef.current = true
-      return
-    }
     const controller = new AbortController()
     setLoadingContactMeta(true)
 
@@ -366,22 +386,51 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     activePhoneRef.current = activePhone
   }, [activePhone])
 
-  const loadConversas = async () => {
-    setPolling(true)
-    setLoadingConversas(true)
+  const loadConversas = async (reset = false) => {
+    if (reset) {
+      setPolling(true)
+      setLoadingConversas(true)
+    } else {
+      setLoadingMoreConversas(true)
+    }
+
     try {
-      const resp = await fetch('/api/atendimento/conversas')
+      const offset = reset ? 0 : conversasOffset
+      const params = new URLSearchParams({
+        limit: String(CONVERSAS_PAGE_SIZE),
+        offset: String(offset),
+      })
+      const resp = await fetch(`/api/atendimento/conversas?${params.toString()}`)
       const data = await resp.json()
-      setConversas(data.conversas ?? [])
-      if (!activePhone && data.conversas?.[0]?.phone) {
-        setActivePhone(data.conversas[0].phone)
+      const nextConversas = data.conversas ?? []
+
+      if (reset) {
+        setConversas(nextConversas)
+        setConversasOffset(nextConversas.length)
+        setHasMoreConversas(nextConversas.length === CONVERSAS_PAGE_SIZE)
+        if (!activePhone && nextConversas[0]?.phone) {
+          setActivePhone(nextConversas[0].phone)
+        }
+      } else {
+        setConversas((prev) => [...prev, ...nextConversas])
+        setConversasOffset((prev) => prev + nextConversas.length)
+        setHasMoreConversas(nextConversas.length === CONVERSAS_PAGE_SIZE)
       }
     } catch (err) {
       toast.error('Não foi possível atualizar as conversas.')
     } finally {
-      setLoadingConversas(false)
-      setPolling(false)
+      if (reset) {
+        setLoadingConversas(false)
+        setPolling(false)
+      } else {
+        setLoadingMoreConversas(false)
+      }
     }
+  }
+
+  const loadMoreConversas = async () => {
+    if (loadingMoreConversas || !hasMoreConversas) return
+    await loadConversas(false)
   }
 
   const deleteConversa = async (phone: string) => {
@@ -395,9 +444,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       if (!resp.ok) throw new Error(data.message || 'Erro ao excluir conversa')
       setConversas((prev) => prev.filter((item) => item.phone !== phone))
       delete messagesCacheRef.current[phone]
+      delete messagesMetaRef.current[phone]
       if (activePhone === phone) {
         setActivePhone(null)
         setMessages([])
+        setHasMoreMessages(false)
+        setOldestMessageAt(null)
       }
       toast.success('Conversa removida.')
     } catch (err) {
@@ -405,14 +457,24 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     }
   }
 
-  const loadMessages = async (phone: string | null) => {
+  const loadMessages = async (phone: string | null, opts?: { before?: string; append?: boolean }) => {
     if (!phone) return
     const requestPhone = phone
-    setLoadingMessages(true)
+    const append = Boolean(opts?.append)
+    if (append) {
+      setLoadingMoreMessages(true)
+    } else {
+      setLoadingMessages(true)
+    }
     try {
-      const resp = await fetch(
-        `/api/atendimento/messages?phone=${encodeURIComponent(phone)}&limit=100`
-      )
+      const params = new URLSearchParams({
+        phone,
+        limit: String(MESSAGES_PAGE_SIZE),
+      })
+      if (opts?.before) {
+        params.set('before', opts.before)
+      }
+      const resp = await fetch(`/api/atendimento/messages?${params.toString()}`)
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) {
         if (activePhoneRef.current === requestPhone) {
@@ -421,23 +483,64 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
         return
       }
       if (activePhoneRef.current !== requestPhone) return
-      const cleaned = (data.messages ?? []).filter(
-        (m: Message) => (m.body && m.body.trim()) || m.media
-      )
-      messagesCacheRef.current[requestPhone] = cleaned
-      setMessages(cleaned)
+      const received = (data.messages ?? []) as Message[]
+      const cleaned = received.filter((m: Message) => (m.body && m.body.trim()) || m.media)
+      const ordered = cleaned.slice().reverse()
+      const hasMore = received.length === MESSAGES_PAGE_SIZE
+      const previousMeta = messagesMetaRef.current[requestPhone]
+      const previousOldest = previousMeta?.oldest ?? null
+      const nextOldest = ordered[0]?.created_at ?? previousOldest
+
+      if (append) {
+        setMessages((prev) => {
+          const merged = [...ordered, ...prev]
+          messagesCacheRef.current[requestPhone] = merged
+          return merged
+        })
+      } else {
+        messagesCacheRef.current[requestPhone] = ordered
+        setMessages(ordered)
+      }
+
+      messagesMetaRef.current[requestPhone] = {
+        oldest: nextOldest ?? null,
+        hasMore,
+      }
+      setOldestMessageAt(nextOldest ?? null)
+      setHasMoreMessages(hasMore)
     } finally {
-      setLoadingMessages(false)
+      if (append) {
+        setLoadingMoreMessages(false)
+      } else {
+        setLoadingMessages(false)
+      }
     }
+  }
+
+  const loadMoreMessages = async () => {
+    if (!activePhone || !hasMoreMessages || loadingMoreMessages) return
+    if (!oldestMessageAt) return
+    await loadMessages(activePhone, { before: oldestMessageAt, append: true })
   }
 
   useEffect(() => {
     if (activePhone) {
       const cached = messagesCacheRef.current[activePhone]
       setMessages(cached ?? [])
+      const meta = messagesMetaRef.current[activePhone]
+      const derivedOldest = cached?.[0]?.created_at ?? null
+      const derivedHasMore = cached ? cached.length === MESSAGES_PAGE_SIZE : false
+      setOldestMessageAt(meta?.oldest ?? derivedOldest)
+      setHasMoreMessages(meta?.hasMore ?? derivedHasMore)
+      if (!meta && cached) {
+        messagesMetaRef.current[activePhone] = {
+          oldest: derivedOldest,
+          hasMore: derivedHasMore,
+        }
+      }
       if (!didInitialMessagesRef.current) {
         didInitialMessagesRef.current = true
-        return
+        if (cached && cached.length > 0) return
       }
       loadMessages(activePhone)
     }
@@ -515,7 +618,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
         fileInputRef.current.value = ''
       }
       await loadMessages(activePhone)
-      await loadConversas()
+      await loadConversas(true)
       toast.success('Mensagem enviada.')
     } catch (err) {
       toast.error((err as Error)?.message || 'Falha ao enviar')
@@ -561,6 +664,9 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       if (action === 'clear') {
         setMessages([])
         messagesCacheRef.current[activeConversa.phone] = []
+        messagesMetaRef.current[activeConversa.phone] = { oldest: null, hasMore: false }
+        setHasMoreMessages(false)
+        setOldestMessageAt(null)
         setConversas((prev) =>
           prev.map((c) =>
             c.phone === activeConversa.phone
@@ -673,7 +779,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={loadConversas}>
+              <Button variant="ghost" size="icon" onClick={() => loadConversas(true)}>
                 <RefreshCw className={cn('h-4 w-4', polling && 'animate-spin')} />
               </Button>
               <Button variant="ghost" size="icon">
@@ -812,6 +918,19 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
                 </div>
               )
             })}
+            {hasMoreConversas && searchTerm.trim().length === 0 && (
+              <div className="mt-3 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingMoreConversas}
+                  onClick={loadMoreConversas}
+                >
+                  {loadingMoreConversas ? 'Carregando...' : 'Carregar mais conversas'}
+                </Button>
+              </div>
+            )}
           </div>
         </section>
 
@@ -873,6 +992,19 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
               </header>
 
               <div className="mt-4 flex-1 min-h-0 space-y-4 overflow-y-auto rounded-2xl bg-muted/40 p-4">
+                {hasMoreMessages && (
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={loadingMoreMessages}
+                      onClick={loadMoreMessages}
+                    >
+                      {loadingMoreMessages ? 'Carregando...' : 'Carregar mensagens anteriores'}
+                    </Button>
+                  </div>
+                )}
                 {!loadingMessages && messages.length === 0 && (
                   <EmptyState
                     icon={AlertTriangle}
