@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import { cookies, headers } from 'next/headers'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { requireEnv } from '../env'
 
 const url = requireEnv('SUPABASE_URL')
@@ -7,15 +7,22 @@ const anonKey = requireEnv('SUPABASE_ANON_KEY')
 
 export const createSupabaseServerClient = async () => {
   const cookieStore = await cookies()
-  const headerStore = await headers()
-  const bearer =
-    cookieStore.get('sb-access-token')?.value ||
-    headerStore.get('authorization')?.replace(/^Bearer\s+/i, '') ||
-    null
 
-  return createClient(url, anonKey, {
-    global: bearer ? { headers: { Authorization: `Bearer ${bearer}` } } : {},
-    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  return createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll().map(({ name, value }) => ({ name, value }))
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+          })
+        } catch {
+          // setAll can fail in Server Components; ignore and rely on SSR refresh at the edge.
+        }
+      },
+    },
   })
 }
 
