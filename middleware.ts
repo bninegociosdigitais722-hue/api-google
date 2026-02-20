@@ -62,5 +62,18 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt).*)'],
+  // Mantém isolamento por host apenas onde há app/api; libera marketing estático.
+  matcher: [
+    '/api/:path*',
+    '/admin/:path*',
+    '/atendimento/:path*',
+    '/consultas/:path*',
+    '/dashboard/:path*',
+    '/app/:path*',
+    '/configuracoes/:path*',
+    '/auth/:path*',
+    '/login',
+    '/403',
+    '/404',
+  ],
 }
