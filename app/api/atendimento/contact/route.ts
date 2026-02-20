@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
 import { logError, logInfo, resolveRequestId } from '../../../../lib/logger'
@@ -20,7 +19,10 @@ export async function GET(req: NextRequest) {
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
-  const user = userError ? null : userData.user ?? null
+  if (userError || !userData.user) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  }
+  const user = userData.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -36,7 +38,6 @@ export async function GET(req: NextRequest) {
     }
     throw err
   }
-  const db = user ? supabaseServer : supabaseAdmin
 
   const phoneParam = req.nextUrl.searchParams.get('phone')
   if (!phoneParam) {
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const { data: contact, error: contactError } = await db
+  const { data: contact, error: contactError } = await supabaseServer
     .from('contacts')
     .select(
       'id, phone, name, is_whatsapp, last_message_at, photo_url, about, notify, short, vname, metadata_updated_at, photo_updated_at, presence_status, presence_updated_at, chat_unread'
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
     updates.photo_updated_at = now
   }
 
-  const { data: updated, error: updateError } = await db
+  const { data: updated, error: updateError } = await supabaseServer
     .from('contacts')
     .update(updates)
     .eq('id', contact.id)

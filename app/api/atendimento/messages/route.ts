@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { normalizePhoneToBR } from '../../../../lib/zapi'
 import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
@@ -24,7 +23,10 @@ export async function GET(req: NextRequest) {
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
-  const user = userError ? null : userData.user ?? null
+  if (userError || !userData.user) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  }
+  const user = userData.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -40,7 +42,6 @@ export async function GET(req: NextRequest) {
     }
     throw err
   }
-  const db = user ? supabaseServer : supabaseAdmin
 
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) {
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const { data: contact, error: contactError } = await db
+  const { data: contact, error: contactError } = await supabaseServer
     .from('contacts')
     .select(
       'id, phone, name, photo_url, about, notify, short, vname, presence_status, presence_updated_at, chat_unread'
@@ -87,7 +88,7 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  let query = db
+  let query = supabaseServer
     .from('messages')
     .select(
       'id, contact_id, body, direction, status, created_at, media, provider_message_id, edited_at, deleted_at'
@@ -141,7 +142,10 @@ export async function DELETE(req: NextRequest) {
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
-  const user = userError ? null : userData.user ?? null
+  if (userError || !userData.user) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  }
+  const user = userData.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -157,8 +161,6 @@ export async function DELETE(req: NextRequest) {
     }
     throw err
   }
-  const db = user ? supabaseServer : supabaseAdmin
-
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) {
     return NextResponse.json(
@@ -175,7 +177,7 @@ export async function DELETE(req: NextRequest) {
     )
   }
 
-  const { data: contact, error: contactError } = await db
+  const { data: contact, error: contactError } = await supabaseServer
     .from('contacts')
     .select('id')
     .eq('phone', normalized)
@@ -200,7 +202,7 @@ export async function DELETE(req: NextRequest) {
     )
   }
 
-  const { error } = await db
+  const { error } = await supabaseServer
     .from('messages')
     .delete()
     .eq('contact_id', contact.id)

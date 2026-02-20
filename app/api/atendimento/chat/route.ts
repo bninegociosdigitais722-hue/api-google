@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
 import { logError, logInfo, resolveRequestId } from '../../../../lib/logger'
@@ -17,7 +16,10 @@ export async function POST(req: NextRequest) {
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
-  const user = userError ? null : userData.user ?? null
+  if (userError || !userData.user) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  }
+  const user = userData.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -33,7 +35,6 @@ export async function POST(req: NextRequest) {
     }
     throw err
   }
-  const db = user ? supabaseServer : supabaseAdmin
 
   const { phone, action } = (await req.json().catch(() => ({}))) as {
     phone?: string
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === 'clear') {
-    const { data: contact } = await db
+    const { data: contact } = await supabaseServer
       .from('contacts')
       .select('id')
       .eq('owner_id', ownerId)
@@ -89,8 +90,8 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (contact?.id) {
-      await db.from('messages').delete().eq('owner_id', ownerId).eq('contact_id', contact.id)
-      await db
+      await supabaseServer.from('messages').delete().eq('owner_id', ownerId).eq('contact_id', contact.id)
+      await supabaseServer
         .from('contacts')
         .update({ last_message_at: null, chat_unread: false })
         .eq('owner_id', ownerId)
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === 'read') {
-    await db
+    await supabaseServer
       .from('contacts')
       .update({ chat_unread: false })
       .eq('owner_id', ownerId)
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === 'unread') {
-    await db
+    await supabaseServer
       .from('contacts')
       .update({ chat_unread: true })
       .eq('owner_id', ownerId)

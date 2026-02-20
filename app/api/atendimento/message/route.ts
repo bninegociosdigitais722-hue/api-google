@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
 import { logError, logInfo, resolveRequestId } from '../../../../lib/logger'
@@ -15,7 +14,10 @@ export async function DELETE(req: NextRequest) {
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
-  const user = userError ? null : userData.user ?? null
+  if (userError || !userData.user) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  }
+  const user = userData.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -31,7 +33,6 @@ export async function DELETE(req: NextRequest) {
     }
     throw err
   }
-  const db = user ? supabaseServer : supabaseAdmin
 
   const { phone, messageId, owner } = (await req.json().catch(() => ({}))) as {
     phone?: string
@@ -79,7 +80,7 @@ export async function DELETE(req: NextRequest) {
     )
   }
 
-  const { error: updateError } = await db
+  const { error: updateError } = await supabaseServer
     .from('messages')
     .update({
       body: '[mensagem apagada]',

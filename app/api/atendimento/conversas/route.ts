@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
 import { logError, logInfo, logWarn, resolveRequestId } from '../../../../lib/logger'
@@ -35,7 +34,10 @@ export async function GET(req: NextRequest) {
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
-  const user = userError ? null : userData.user ?? null
+  if (userError || !userData.user) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  }
+  const user = userData.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -51,14 +53,13 @@ export async function GET(req: NextRequest) {
     }
     throw err
   }
-  const db = user ? supabaseServer : supabaseAdmin
 
   const limitParam = req.nextUrl.searchParams.get('limit')
   const offsetParam = req.nextUrl.searchParams.get('offset')
   const limit = Math.min(Math.max(Number(limitParam) || 20, 1), 100)
   const offset = Math.max(Number(offsetParam) || 0, 0)
 
-  const { data: contacts, error } = await db
+  const { data: contacts, error } = await supabaseServer
     .from('contacts')
     .select(
       'id, phone, name, is_whatsapp, last_message_at, photo_url, presence_status, presence_updated_at, chat_unread'
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
   let messagesMap = new Map<number, Conversa['last_message']>()
 
   if (contactIds.length) {
-    const { data: msgs } = await supabaseAdmin
+    const { data: msgs } = await supabaseServer
       .from('last_messages_by_contact')
       .select('contact_id, body, direction, created_at')
       .eq('owner_id', ownerId)
@@ -128,7 +129,10 @@ export async function DELETE(req: NextRequest) {
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
-  const user = userError ? null : userData.user ?? null
+  if (userError || !userData.user) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  }
+  const user = userData.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -144,8 +148,6 @@ export async function DELETE(req: NextRequest) {
     }
     throw err
   }
-  const db = user ? supabaseServer : supabaseAdmin
-
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) {
     return NextResponse.json(
@@ -154,7 +156,7 @@ export async function DELETE(req: NextRequest) {
     )
   }
 
-  const { data: contact, error: contactError } = await db
+  const { data: contact, error: contactError } = await supabaseServer
     .from('contacts')
     .select('id')
     .eq('phone', phone)
@@ -179,7 +181,7 @@ export async function DELETE(req: NextRequest) {
     )
   }
 
-  const { error: deleteMsgError } = await db
+  const { error: deleteMsgError } = await supabaseServer
     .from('messages')
     .delete()
     .eq('contact_id', contact.id)
@@ -203,7 +205,7 @@ export async function DELETE(req: NextRequest) {
     )
   }
 
-  const { error: deleteContactError } = await db
+  const { error: deleteContactError } = await supabaseServer
     .from('contacts')
     .delete()
     .eq('id', contact.id)

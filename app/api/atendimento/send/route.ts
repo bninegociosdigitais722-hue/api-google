@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import supabaseAdmin from '../../../../lib/supabase/admin'
 import { createSupabaseServerClient } from '../../../../lib/supabase/server'
 import { normalizePhoneToBR, sendAudio, sendDocument, sendImage, sendText, sendVideo } from '../../../../lib/zapi'
 import { resolveOwnerId, TenantResolutionError } from '../../../../lib/tenant'
@@ -113,7 +112,10 @@ export async function POST(req: NextRequest) {
   const noStoreHeaders = { 'Cache-Control': 'no-store' }
   const supabaseServer = await createSupabaseServerClient()
   const { data: userData, error: userError } = await supabaseServer.auth.getUser()
-  const user = userError ? null : userData.user ?? null
+  if (userError || !userData.user) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: noStoreHeaders })
+  }
+  const user = userData.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {
@@ -129,7 +131,6 @@ export async function POST(req: NextRequest) {
     }
     throw err
   }
-  const db = user ? supabaseServer : supabaseAdmin
 
   const {
     phones = [],
@@ -177,7 +178,7 @@ Posso te explicar rapidinho como funciona?`
     const trimmedPhoto = typeof photoUrl === 'string' ? photoUrl.trim() : ''
     const now = new Date().toISOString()
 
-    const { data: existing } = await db
+    const { data: existing } = await supabaseServer
       .from('contacts')
       .select('id, last_outbound_template, name, photo_url')
       .eq('owner_id', ownerId)
@@ -194,7 +195,7 @@ Posso te explicar rapidinho como funciona?`
         updates.photo_updated_at = now
       }
       if (Object.keys(updates).length > 0) {
-        const { error: updateError } = await db
+        const { error: updateError } = await supabaseServer
           .from('contacts')
           .update(updates)
           .eq('id', existing.id)
@@ -220,7 +221,7 @@ Posso te explicar rapidinho como funciona?`
       payload.photo_updated_at = now
     }
 
-    const { data, error } = await db
+    const { data, error } = await supabaseServer
       .from('contacts')
       .insert(payload)
       .select('id, last_outbound_template')
@@ -284,7 +285,7 @@ Posso te explicar rapidinho como funciona?`
         resp = await sendText(phone, trimmedMessage)
       }
 
-      await db.from('messages').insert({
+      await supabaseServer.from('messages').insert({
         owner_id: ownerId,
         contact_id: contactId,
         direction: 'out',
@@ -294,7 +295,7 @@ Posso te explicar rapidinho como funciona?`
         media,
       })
 
-      await db
+      await supabaseServer
         .from('contacts')
         .update({
           last_message_at: new Date().toISOString(),
