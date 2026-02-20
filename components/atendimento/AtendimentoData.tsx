@@ -49,7 +49,7 @@ export default async function AtendimentoData() {
       ownerId,
       db,
       contactsLimit: 20,
-      messagesLimit: 20,
+      messagesLimit: 0,
     })
     perf.mark('queries')
 

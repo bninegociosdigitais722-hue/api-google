@@ -26,7 +26,7 @@ export default async function ConsultasData({ apiPrefix, perfLabel, path }: Cons
   let contatos: any[] = []
   let hasError: { message?: string } | null = null
   try {
-    const summary = await getConsultasSummary(host, 20)
+    const summary = await getConsultasSummary(host, 10)
     contatos = summary.contacts
   } catch (err) {
     if (err instanceof TenantResolutionError) {

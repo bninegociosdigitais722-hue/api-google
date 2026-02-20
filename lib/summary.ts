@@ -41,23 +41,17 @@ type PortalConsultasSummary = {
 const getConsultasSummaryCached = (ownerId: string, limit: number) =>
   unstable_cache(
     async (): Promise<ConsultasSummary> => {
-      const [contactsRes, countRes] = await Promise.all([
-        supabaseAdmin
-          .from('contacts')
-          .select('id, name, phone, is_whatsapp, last_outbound_template, photo_url')
-          .eq('owner_id', ownerId)
-          .order('last_message_at', { ascending: false })
-          .limit(limit),
-        supabaseAdmin
-          .from('contacts')
-          .select('id', { count: 'estimated', head: true })
-          .eq('owner_id', ownerId),
-      ])
+      const contactsRes = await supabaseAdmin
+        .from('contacts')
+        .select('id, name, phone, is_whatsapp, last_outbound_template, photo_url')
+        .eq('owner_id', ownerId)
+        .order('last_message_at', { ascending: false })
+        .limit(limit)
 
       return {
         ownerId,
         contacts: contactsRes.data ?? [],
-        count: typeof countRes.count === 'number' ? countRes.count : null,
+        count: null,
       }
     },
     ['consultas-summary', ownerId, String(limit)],
@@ -80,7 +74,7 @@ const getConsultasCountCached = (ownerId: string) =>
 
 export const getConsultasSummary = async (
   host: string | null,
-  limit: number = 20
+  limit: number = 10
 ): Promise<ConsultasSummary> => {
   const perf = createServerPerf('consultas.summary', { host })
   perf.mark('start')
