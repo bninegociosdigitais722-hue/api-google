@@ -19,9 +19,12 @@ export default async function AtendimentoData() {
   })
   perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
-  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
+  const { data: sessionData, error: sessionError } = await supabaseServer.auth.getSession()
   perf.mark('session')
-  const user = userError ? null : userData.user ?? null
+  if (sessionError || !sessionData.session) {
+    redirect('/login')
+  }
+  const user = sessionData.session.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   let ownerId = ''
   try {

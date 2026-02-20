@@ -38,6 +38,13 @@ type PortalConsultasSummary = {
   }>
 }
 
+export class SessionRequiredError extends Error {
+  constructor() {
+    super('SESSION_REQUIRED')
+    this.name = 'SessionRequiredError'
+  }
+}
+
 const getConsultasSummaryCached = (ownerId: string, limit: number) =>
   unstable_cache(
     async (): Promise<ConsultasSummary> => {
@@ -79,9 +86,12 @@ export const getConsultasSummary = async (
   const perf = createServerPerf('consultas.summary', { host })
   perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
-  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
+  const { data: sessionData, error: sessionError } = await supabaseServer.auth.getSession()
   perf.mark('session')
-  const user = userError ? null : userData.user ?? null
+  if (sessionError || !sessionData.session) {
+    throw new SessionRequiredError()
+  }
+  const user = sessionData.session.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = await resolveOwnerId({
     host,
@@ -102,9 +112,12 @@ export const getConsultasCount = async (host: string | null): Promise<number | n
   const perf = createServerPerf('consultas.count', { host })
   perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
-  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
+  const { data: sessionData, error: sessionError } = await supabaseServer.auth.getSession()
   perf.mark('session')
-  const user = userError ? null : userData.user ?? null
+  if (sessionError || !sessionData.session) {
+    throw new SessionRequiredError()
+  }
+  const user = sessionData.session.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = await resolveOwnerId({
     host,
@@ -161,9 +174,12 @@ export const getPortalConsultasSummary = async (
   const perf = createServerPerf('portal.consultas.summary', { host })
   perf.mark('start')
   const supabaseServer = await createSupabaseServerClient()
-  const { data: userData, error: userError } = await supabaseServer.auth.getUser()
+  const { data: sessionData, error: sessionError } = await supabaseServer.auth.getSession()
   perf.mark('session')
-  const user = userError ? null : userData.user ?? null
+  if (sessionError || !sessionData.session) {
+    throw new SessionRequiredError()
+  }
+  const user = sessionData.session.user
   const ownerIdFromUser = (user?.app_metadata as any)?.owner_id as string | undefined
   const ownerId = await resolveOwnerId({
     host,

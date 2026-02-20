@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { resolveRequestId } from '@/lib/logger'
 import { createServerPerf } from '@/lib/perf'
 import { TenantResolutionError } from '@/lib/tenant'
-import { getConsultasCount } from '@/lib/summary'
+import { getConsultasCount, SessionRequiredError } from '@/lib/summary'
 
 type ConsultasCountProps = {
   perfLabel: string
@@ -26,6 +26,9 @@ export default async function ConsultasCount({ perfLabel, path }: ConsultasCount
   try {
     count = await getConsultasCount(host)
   } catch (err) {
+    if (err instanceof SessionRequiredError) {
+      redirect('/login')
+    }
     if (err instanceof TenantResolutionError) {
       redirect('/403')
     }

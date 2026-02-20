@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { resolveRequestId } from '@/lib/logger'
 import { createServerPerf } from '@/lib/perf'
 import { TenantResolutionError } from '@/lib/tenant'
-import { getConsultasSummary } from '@/lib/summary'
+import { getConsultasSummary, SessionRequiredError } from '@/lib/summary'
 
 type ConsultasDataProps = {
   apiPrefix: string
@@ -29,6 +29,9 @@ export default async function ConsultasData({ apiPrefix, perfLabel, path }: Cons
     const summary = await getConsultasSummary(host, 10)
     contatos = summary.contacts
   } catch (err) {
+    if (err instanceof SessionRequiredError) {
+      redirect('/login')
+    }
     if (err instanceof TenantResolutionError) {
       redirect('/403')
     }
