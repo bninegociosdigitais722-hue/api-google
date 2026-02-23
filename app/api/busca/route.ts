@@ -17,6 +17,9 @@ type WhatsappStatus = Map<string, boolean>
 
 const MIN_RADIUS_METERS = 3000
 const MAX_RADIUS_METERS = 50000
+const NEIGHBORHOOD_MIN_RADIUS_METERS = 1500
+const NEIGHBORHOOD_MAX_RADIUS_METERS = 8000
+const CITY_MAX_RADIUS_METERS = 20000
 const MIN_RESULTS_BEFORE_FALLBACK = 8
 
 const normalizeType = (value: string): string | undefined => {
@@ -52,10 +55,32 @@ const haversineDistanceMeters = (
 
 const resolveRadius = (
   center: { lat: number; lng: number },
-  viewport?: { northeast: { lat: number; lng: number }; southwest: { lat: number; lng: number } }
+  viewport?: { northeast: { lat: number; lng: number }; southwest: { lat: number; lng: number } },
+  types: string[] = []
 ) => {
+  const neighborhoodTypes = new Set([
+    'neighborhood',
+    'sublocality',
+    'sublocality_level_1',
+    'sublocality_level_2',
+    'sublocality_level_3',
+    'sublocality_level_4',
+    'sublocality_level_5',
+    'postal_code',
+    'route',
+  ])
+  const cityTypes = new Set(['locality', 'administrative_area_level_2', 'administrative_area_level_1'])
+  const isNeighborhood = types.some((t) => neighborhoodTypes.has(t))
+  const isCity = types.some((t) => cityTypes.has(t))
+  const minRadius = isNeighborhood ? NEIGHBORHOOD_MIN_RADIUS_METERS : MIN_RADIUS_METERS
+  const maxRadius = isNeighborhood
+    ? NEIGHBORHOOD_MAX_RADIUS_METERS
+    : isCity
+      ? CITY_MAX_RADIUS_METERS
+      : MAX_RADIUS_METERS
+
   if (!viewport) {
-    return MIN_RADIUS_METERS
+    return minRadius
   }
 
   const radius = Math.max(
@@ -71,7 +96,7 @@ const resolveRadius = (
     })
   )
 
-  return Math.min(Math.max(Math.round(radius), MIN_RADIUS_METERS), MAX_RADIUS_METERS)
+  return Math.min(Math.max(Math.round(radius), minRadius), maxRadius)
 }
 
 export const runtime = 'nodejs'
@@ -139,10 +164,11 @@ export async function GET(req: NextRequest) {
         const location = geometry?.location
         if (location?.lat && location?.lng) {
           const viewport = geometry?.bounds ?? geometry?.viewport
+          const types = Array.isArray(firstResult?.types) ? firstResult.types : []
           return {
             lat: location.lat,
             lng: location.lng,
-            radius: resolveRadius(location, viewport),
+            radius: resolveRadius(location, viewport, types),
             source: 'geocode',
           }
         }
