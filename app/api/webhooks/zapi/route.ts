@@ -61,26 +61,55 @@ type MessageMedia = {
 }
 
 const extractPhone = (payload: ZapiIncoming): string | null => {
+  const data = (payload as any)?.data ?? null
+  const messages = (payload as any)?.messages ?? null
+  const dataMessages = data?.messages ?? null
+
   const candidates = [
     payload.phone,
     payload.from,
-    payload.remoteJid?.split('@')[0],
+    payload.remoteJid,
     payload.message?.phone,
     payload.message?.from,
     typeof payload.sender === 'string' ? payload.sender : payload.sender?.phone,
     payload.participant,
     payload.chatId,
     payload.chatid,
+    data?.phone,
+    data?.from,
+    data?.remoteJid,
+    data?.key?.remoteJid,
+    data?.key?.participant,
+    data?.sender?.id,
+    data?.sender?.phone,
+    data?.message?.from,
+    data?.message?.phone,
+    messages?.[0]?.key?.remoteJid,
+    messages?.[0]?.key?.participant,
+    dataMessages?.[0]?.key?.remoteJid,
+    dataMessages?.[0]?.key?.participant,
+    (payload as any)?.contact?.wa_id,
+    (payload as any)?.contacts?.[0]?.wa_id,
   ].filter(Boolean) as string[]
 
   for (const cand of candidates) {
-    const digits = cand.replace(/\D/g, '')
+    const raw = cand.includes('@') ? cand.split('@')[0] : cand
+    const digits = raw.replace(/\D/g, '')
     if (digits.length >= 10 && digits.length <= 13) {
       const normalized = normalizePhoneToBR(digits)
       if (normalized) return normalized
     }
   }
   return null
+}
+
+const extractPhoneFromRaw = (rawBody: string): string | null => {
+  if (!rawBody) return null
+  const match = rawBody.match(/(\d{10,15})@(?:c\.us|s\.whatsapp\.net)/i)
+  if (!match) return null
+  const digits = match[1].replace(/\D/g, '')
+  const normalized = normalizePhoneToBR(digits)
+  return normalized
 }
 
 const normalizeCallbackType = (value?: string | null) =>
@@ -313,14 +342,17 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const phone = extractPhone(payload)
+  const phone = extractPhone(payload) ?? extractPhoneFromRaw(rawBody)
 
   if (!phone) {
     logWarn('zapi webhook phone_missing', {
       tag: 'api/webhooks/zapi',
       requestId,
       host,
-      raw: payload,
+      payloadKeys: Object.keys(payload),
+      dataKeys: Object.keys(((payload as any)?.data ?? {}) as Record<string, unknown>),
+      messageKeys: Object.keys(payload.message ?? {}),
+      rawSize: rawBody.length,
     })
     return NextResponse.json(
       { message: 'Telefone não identificado no payload.' },
