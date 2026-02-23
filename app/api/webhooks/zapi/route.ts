@@ -239,20 +239,26 @@ const verifySignature = (req: NextRequest, rawBody: string) => {
     req.headers.get('client-token'),
     req.headers.get('authorization')?.replace(/^Bearer\s+/i, ''),
     req.headers.get('x-api-key'),
+    req.nextUrl.searchParams.get('token'),
+    req.nextUrl.searchParams.get('webhook_token'),
   ]
     .filter(Boolean)
     .map((value) => value!.replace(/^sha256=/i, '').trim())
 
   if (!candidates.length) return false
 
-  const hmacHex = createHmac('sha256', expected).update(rawBody).digest('hex')
-  const hmacBase64 = createHmac('sha256', expected).update(rawBody).digest('base64')
-
   const safeCompare = (left: string, right: string) => {
     const leftBuf = Buffer.from(left)
     const rightBuf = Buffer.from(right)
     return leftBuf.length === rightBuf.length && timingSafeEqual(leftBuf, rightBuf)
   }
+
+  if (candidates.some((cand) => safeCompare(cand, expected))) {
+    return true
+  }
+
+  const hmacHex = createHmac('sha256', expected).update(rawBody).digest('hex')
+  const hmacBase64 = createHmac('sha256', expected).update(rawBody).digest('base64')
 
   return candidates.some((cand) => safeCompare(cand, hmacHex) || safeCompare(cand, hmacBase64))
 }
