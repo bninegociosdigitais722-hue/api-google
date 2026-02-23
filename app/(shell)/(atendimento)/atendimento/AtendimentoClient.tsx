@@ -401,7 +401,10 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
         offset: String(offset),
       })
       const resp = await fetch(`/api/atendimento/conversas?${params.toString()}`)
-      const data = await resp.json()
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        throw new Error(data.message || 'Não foi possível carregar as conversas.')
+      }
       const nextConversas = data.conversas ?? []
 
       if (reset) {
@@ -417,7 +420,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
         setHasMoreConversas(nextConversas.length === CONVERSAS_PAGE_SIZE)
       }
     } catch (err) {
-      toast.error('Não foi possível atualizar as conversas.')
+      toast.error((err as Error)?.message || 'Não foi possível atualizar as conversas.')
     } finally {
       if (reset) {
         setLoadingConversas(false)
@@ -432,6 +435,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     if (loadingMoreConversas || !hasMoreConversas) return
     await loadConversas(false)
   }
+
+  useEffect(() => {
+    if (initialConversas.length > 0) return
+    loadConversas(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const deleteConversa = async (phone: string) => {
     const ok = window.confirm('Excluir conversa e contato?')
