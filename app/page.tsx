@@ -1,6 +1,12 @@
 import { Button } from '@/components/ui/button'
 
 export default function MarketingPage() {
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || '/admin'
+  const atendimentoUrl = process.env.NEXT_PUBLIC_ATENDIMENTO_URL || '/atendimento'
+  const adminHost = process.env.NEXT_PUBLIC_ADMIN_URL?.replace(/^https?:\/\//, '')
+  const atendimentoHost = process.env.NEXT_PUBLIC_ATENDIMENTO_URL?.replace(/^https?:\/\//, '')
+  const hasDedicatedDomains = Boolean(adminHost && atendimentoHost)
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="relative overflow-hidden pb-24 pt-16">
@@ -15,14 +21,17 @@ export default function MarketingPage() {
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
             Plataforma SaaS multi-tenant com consultas a comércios, atendimento WhatsApp integrado (Z-API)
-            e painel admin seguro. Subdomínios dedicados: admin.radarlocal.com.br e atendimento.radarlocal.com.br.
+            e painel admin seguro.
+            {hasDedicatedDomains
+              ? ` Subdomínios dedicados: ${adminHost} e ${atendimentoHost}.`
+              : ' Acesse o painel e atendimento pelo domínio principal enquanto os subdomínios são configurados.'}
           </p>
           <div className="mt-6 flex flex-wrap gap-3 text-sm">
             <Button asChild size="lg">
-              <a href="https://admin.radarlocal.com.br">Ir para o Admin</a>
+              <a href={adminUrl}>Ir para o Admin</a>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <a href="https://atendimento.radarlocal.com.br">Portal de Atendimento</a>
+              <a href={atendimentoUrl}>Portal de Atendimento</a>
             </Button>
           </div>
         </div>
