@@ -98,13 +98,12 @@ export default function ConsultasClient({
     return digits
   }
 
-  const isSent = (phone?: string | null) => {
+  const isSent = (phone?: string | null, template?: string | null) => {
+    if (template) return true
     const norm = normalizePhone(phone)
     if (!norm) return false
-    if (sentMap[norm]) return true
-    return Boolean(
-      resultados.find((r) => normalizePhone(r.telefone) === norm)?.lastOutboundTemplate
-    )
+    if (sentMap[norm]?.template) return true
+    return Boolean(resultados.find((r) => normalizePhone(r.telefone) === norm)?.lastOutboundTemplate)
   }
 
   const onSubmit = async (values: SearchForm) => {
@@ -125,10 +124,21 @@ export default function ConsultasClient({
         throw new Error(data.message || 'Não foi possível completar a busca.')
       }
 
-      const enriched = data.resultados.map((r) => ({
-        ...r,
-        lastOutboundTemplate: isSent(r.telefone) ? 'supercotacao_demo' : null,
-      }))
+      const enriched = data.resultados.map((r) => {
+        const normalized = normalizePhone(r.telefone)
+        const fromApi = r.lastOutboundTemplate ?? null
+        const fromMap = normalized ? sentMap[normalized]?.template ?? null : null
+        const fromPrevious =
+          normalized
+            ? resultados.find((item) => normalizePhone(item.telefone) === normalized)
+                ?.lastOutboundTemplate ?? null
+            : null
+        const resolved = fromApi ?? fromMap ?? fromPrevious ?? null
+        return {
+          ...r,
+          lastOutboundTemplate: resolved,
+        }
+      })
       setResultados(enriched)
       setVisiveis(enriched.slice(0, 18))
       setTotalCount(enriched.length)
@@ -377,8 +387,12 @@ export default function ConsultasClient({
                     <Button
                       type="button"
                       size="sm"
-                      variant={isSent(item.telefone) ? 'soft' : 'outline'}
-                      disabled={!item.telefone || isSent(item.telefone) || sendingPhone === item.telefone}
+                      variant={isSent(item.telefone, item.lastOutboundTemplate) ? 'soft' : 'outline'}
+                      disabled={
+                        !item.telefone ||
+                        isSent(item.telefone, item.lastOutboundTemplate) ||
+                        sendingPhone === item.telefone
+                      }
                       onClick={async () => {
                         if (!item.telefone) return
                         setSendingPhone(item.telefone)
@@ -440,14 +454,14 @@ export default function ConsultasClient({
                       className="flex-1"
                     >
                       <Send className="h-4 w-4" />
-                      {isSent(item.telefone)
+                      {isSent(item.telefone, item.lastOutboundTemplate)
                         ? 'Enviado'
                         : sendingPhone === item.telefone
                           ? 'Enviando...'
                           : 'Disparar convite'}
                     </Button>
 
-                    {isSent(item.telefone) && (
+                    {isSent(item.telefone, item.lastOutboundTemplate) && (
                       <Button
                         type="button"
                         size="sm"

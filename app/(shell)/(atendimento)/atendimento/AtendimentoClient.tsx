@@ -1,6 +1,6 @@
 "use client"
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertTriangle,
@@ -84,6 +84,7 @@ type Props = {
 
 const CONVERSAS_PAGE_SIZE = 20
 const MESSAGES_PAGE_SIZE = 20
+const POLL_INTERVAL_MS = 8000
 
 const formatPhone = (phone: string) => {
   if (!phone.startsWith('55')) return phone
@@ -439,6 +440,31 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     }
   }
 
+  const refreshConversas = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        limit: String(CONVERSAS_PAGE_SIZE),
+        offset: '0',
+      })
+      const resp = await fetch(`/api/atendimento/conversas?${params.toString()}`)
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) return
+      const nextConversas = (data.conversas ?? []) as Conversa[]
+      setConversas((prev) => {
+        if (nextConversas.length === 0) return prev
+        const nextPhones = new Set(nextConversas.map((c) => c.phone))
+        const merged = [
+          ...nextConversas,
+          ...prev.filter((c) => !nextPhones.has(c.phone)),
+        ]
+        return merged
+      })
+      setConversasOffset((prev) => Math.max(prev, nextConversas.length))
+    } catch (err) {
+      // silent refresh
+    }
+  }, [])
+
   const loadMoreConversas = async () => {
     if (loadingMoreConversas || !hasMoreConversas) return
     await loadConversas(false)
@@ -449,6 +475,25 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     loadConversas(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!activePhone) return
+    let intervalId: number | null = null
+
+    const tick = async () => {
+      if (document.visibilityState !== 'visible') return
+      if (sending || loadingMessages || loadingMoreMessages) return
+      await loadMessages(activePhone)
+      await refreshConversas()
+    }
+
+    tick()
+    intervalId = window.setInterval(tick, POLL_INTERVAL_MS)
+
+    return () => {
+      if (intervalId) window.clearInterval(intervalId)
+    }
+  }, [activePhone, sending, loadingMessages, loadingMoreMessages, refreshConversas])
 
   const deleteConversa = async (phone: string) => {
     const ok = window.confirm('Excluir conversa e contato?')
