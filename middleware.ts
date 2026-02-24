@@ -14,8 +14,10 @@ export async function middleware(req: NextRequest) {
       req.headers.get('x-real-ip') ||
       req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       'unknown'
-    const key = `${host ?? 'unknown'}:${ip}:${pathname.split('/').slice(0, 3).join('/')}`
-    const { limited } = await rateLimit({ key, limit: 120, windowMs: 60_000 })
+    const keyPrefixLength = pathname.startsWith('/api/atendimento/') ? 4 : 3
+    const key = `${host ?? 'unknown'}:${ip}:${pathname.split('/').slice(0, keyPrefixLength).join('/')}`
+    const limit = pathname.startsWith('/api/atendimento/') ? 240 : 120
+    const { limited } = await rateLimit({ key, limit, windowMs: 60_000 })
     if (limited) {
       return NextResponse.json({ message: 'Too many requests' }, { status: 429 })
     }

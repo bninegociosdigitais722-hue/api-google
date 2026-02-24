@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
       'id, phone, name, is_whatsapp, last_message_at, photo_url, presence_status, presence_updated_at, chat_unread'
     )
     .eq('owner_id', ownerId)
+    .not('last_message_at', 'is', null)
     .order('last_message_at', { ascending: false })
     .range(offset, offset + limit - 1)
 

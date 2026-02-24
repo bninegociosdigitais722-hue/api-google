@@ -449,19 +449,35 @@ export async function POST(req: NextRequest) {
 
     const lastSeen = parsePresenceLastSeen(payload.lastSeen)
 
+    const { data: existingContact } = await supabaseAdmin
+      .from('contacts')
+      .select('id')
+      .eq('owner_id', ownerId)
+      .eq('phone', phone)
+      .maybeSingle()
+
+    if (!existingContact?.id) {
+      logInfo('zapi webhook presence ignored unknown contact', {
+        tag: 'api/webhooks/zapi',
+        requestId,
+        host,
+        ownerId,
+        phone,
+        presence,
+      })
+      return NextResponse.json({ ok: true, ignored: 'presence_unknown_contact' }, { status: 200 })
+    }
+
     await supabaseAdmin
       .from('contacts')
-      .upsert(
-        {
-          owner_id: ownerId,
-          phone,
-          is_whatsapp: true,
-          presence_status: presence,
-          presence_last_seen: lastSeen,
-          presence_updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'owner_id,phone' }
-      )
+      .update({
+        is_whatsapp: true,
+        presence_status: presence,
+        presence_last_seen: lastSeen,
+        presence_updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingContact.id)
+      .eq('owner_id', ownerId)
 
     logInfo('zapi webhook presence updated', {
       tag: 'api/webhooks/zapi',
