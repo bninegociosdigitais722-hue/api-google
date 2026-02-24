@@ -97,6 +97,14 @@ const formatPhone = (phone: string) => {
   return `+${phone}`
 }
 
+const normalizePhoneToBR = (phone?: string | null): string | null => {
+  if (!phone) return null
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return null
+  if (digits.startsWith('55')) return digits
+  return `55${digits}`
+}
+
 const getInitials = (name: string | null, phone: string) => {
   const cleaned = (name ?? '').trim()
   if (cleaned) {
