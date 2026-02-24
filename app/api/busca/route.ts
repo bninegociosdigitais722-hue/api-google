@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logError, logInfo, resolveRequestId } from '../../../lib/logger'
 import { normalizePhoneToBR, phoneExistsBatch } from '../../../lib/zapi'
+import { createSupabaseServerClient } from '../../../lib/supabase/server'
+import { resolveOwnerId } from '../../../lib/tenant'
 
 type PlaceSummary = {
   id: string
@@ -11,6 +13,7 @@ type PlaceSummary = {
   mapsUrl: string
   fotoUrl: string | null
   temWhatsapp?: boolean
+  lastOutboundTemplate?: string | null
 }
 
 type WhatsappStatus = Map<string, boolean>
@@ -217,6 +220,36 @@ export async function GET(req: NextRequest) {
     }
 
     return null
+  }
+
+  const loadOutboundTemplates = async (phones: string[]) => {
+    if (!phones.length) return new Map<string, string | null>()
+    try {
+      const supabase = await createSupabaseServerClient()
+      const { data: userData, error: userError } = await supabase.auth.getUser()
+      if (userError || !userData.user) return new Map()
+      const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+      const ownerIdFromUser = (userData.user?.app_metadata as any)?.owner_id as string | undefined
+      const ownerId = await resolveOwnerId({
+        host,
+        userId: userData.user.id,
+        userOwnerId: ownerIdFromUser ?? null,
+        supabase,
+      })
+      const { data } = await supabase
+        .from('contacts')
+        .select('phone, last_outbound_template')
+        .eq('owner_id', ownerId)
+        .in('phone', phones)
+      const map = new Map<string, string | null>()
+      for (const row of data ?? []) {
+        if (!row?.phone) continue
+        map.set(String(row.phone), row.last_outbound_template ?? null)
+      }
+      return map
+    } catch {
+      return new Map()
+    }
   }
 
   const coords = await fetchCoords()
@@ -444,7 +477,19 @@ export async function GET(req: NextRequest) {
 
     const filtered = onlyWhatsapp === 'true' ? enriched.filter((p) => p.temWhatsapp) : enriched
 
-    return NextResponse.json(filtered.length ? { resultados: filtered } : { resultados: [] }, {
+    const normalizedPhones = filtered
+      .map((place) => normalizePhoneToBR(place.telefone))
+      .filter((value): value is string => Boolean(value))
+
+    const outboundTemplates = await loadOutboundTemplates(normalizedPhones)
+
+    const withOutbound = filtered.map((place) => {
+      const normalizedPhone = normalizePhoneToBR(place.telefone)
+      const lastOutboundTemplate = normalizedPhone ? outboundTemplates.get(normalizedPhone) ?? null : null
+      return { ...place, lastOutboundTemplate }
+    })
+
+    return NextResponse.json(withOutbound.length ? { resultados: withOutbound } : { resultados: [] }, {
       status: 200,
       headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=60' },
     })
