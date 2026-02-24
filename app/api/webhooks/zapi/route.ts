@@ -93,19 +93,20 @@ const extractPhone = (payload: ZapiIncoming): string | null => {
   ].filter(Boolean) as string[]
 
   for (const cand of candidates) {
-    const raw = cand.includes('@') ? cand.split('@')[0] : cand
+    const candStr = String(cand)
+    if (candStr.includes('@g.us')) continue
+    const raw = candStr.includes('@') ? candStr.split('@')[0] : candStr
     const digits = raw.replace(/\D/g, '')
-    if (digits.length >= 10 && digits.length <= 13) {
-      const normalized = normalizePhoneToBR(digits)
-      if (normalized) return normalized
-    }
+    if (digits.length < 8) continue
+    const normalized = normalizePhoneToBR(digits)
+    if (normalized) return normalized
   }
   return null
 }
 
 const extractPhoneFromRaw = (rawBody: string): string | null => {
   if (!rawBody) return null
-  const match = rawBody.match(/(\d{10,15})@(?:c\.us|s\.whatsapp\.net)/i)
+  const match = rawBody.match(/(\d{8,15})@(?:c\.us|s\.whatsapp\.net)/i)
   if (!match) return null
   const digits = match[1].replace(/\D/g, '')
   const normalized = normalizePhoneToBR(digits)
@@ -352,6 +353,8 @@ export async function POST(req: NextRequest) {
       payloadKeys: Object.keys(payload),
       dataKeys: Object.keys(((payload as any)?.data ?? {}) as Record<string, unknown>),
       messageKeys: Object.keys(payload.message ?? {}),
+      type: (payload as any)?.type ?? null,
+      phoneValue: (payload as any)?.phone ?? null,
       rawSize: rawBody.length,
     })
     return NextResponse.json(
