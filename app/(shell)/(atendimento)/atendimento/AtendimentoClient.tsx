@@ -84,7 +84,7 @@ type Props = {
 
 const CONVERSAS_PAGE_SIZE = 20
 const MESSAGES_PAGE_SIZE = 20
-const POLL_INTERVAL_MS = 8000
+const POLL_INTERVAL_MS = 1000
 
 const formatPhone = (phone: string) => {
   if (!phone.startsWith('55')) return phone
@@ -519,13 +519,17 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     }
   }
 
-  const loadMessages = async (phone: string | null, opts?: { before?: string; append?: boolean }) => {
+  const loadMessages = async (
+    phone: string | null,
+    opts?: { before?: string; append?: boolean; silent?: boolean }
+  ) => {
     if (!phone) return
     const requestPhone = phone
     const append = Boolean(opts?.append)
+    const silent = Boolean(opts?.silent)
     if (append) {
       setLoadingMoreMessages(true)
-    } else {
+    } else if (!silent) {
       setLoadingMessages(true)
     }
     try {
@@ -539,7 +543,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       const resp = await fetch(`/api/atendimento/messages?${params.toString()}`)
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) {
-        if (activePhoneRef.current === requestPhone) {
+        if (!silent && activePhoneRef.current === requestPhone) {
           toast.error(data.message || 'Não foi possível carregar as mensagens.')
         }
         return
@@ -573,7 +577,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
     } finally {
       if (append) {
         setLoadingMoreMessages(false)
-      } else {
+      } else if (!silent) {
         setLoadingMessages(false)
       }
     }
@@ -685,7 +689,7 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-      await loadMessages(activePhone)
+      await loadMessages(activePhone, { silent: true })
       await loadConversas(true)
       toast.success('Mensagem enviada.')
     } catch (err) {
