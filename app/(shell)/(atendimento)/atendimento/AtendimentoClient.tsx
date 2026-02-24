@@ -620,6 +620,12 @@ export default function AtendimentoClient({ initialConversas, initialMessagesByP
       })
       const data = await resp.json()
       if (!resp.ok) throw new Error(data.message || 'Erro ao enviar')
+      const result = Array.isArray(data?.results)
+        ? data.results.find((r: any) => normalizePhoneToBR(r.phone) === activePhone)
+        : null
+      if (result?.status === 'failed') {
+        throw new Error(result.error || 'Erro ao enviar')
+      }
       setComposer('')
       setAttachment(null)
       setAttachmentError(null)

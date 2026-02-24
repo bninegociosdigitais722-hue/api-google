@@ -324,14 +324,26 @@ Posso te explicar rapidinho como funciona?`
     }
   }
 
+  const successCount = results.filter((r) => r.status === 'sent').length
+  const failedCount = results.filter((r) => r.status === 'failed').length
+  const skippedCount = results.filter((r) => r.status === 'skipped').length
+
   logInfo('atendimento/send done', {
     tag: 'api/atendimento/send',
     requestId,
     host,
     ownerId,
-    success: results.filter((r) => r.status === 'sent').length,
-    failed: results.filter((r) => r.status === 'failed').length,
+    success: successCount,
+    failed: failedCount,
+    skipped: skippedCount,
   })
+
+  if (successCount === 0 && failedCount > 0) {
+    return NextResponse.json(
+      { message: results[0]?.error || 'Falha ao enviar mensagens.', results },
+      { status: 502, headers: noStoreHeaders }
+    )
+  }
 
   return NextResponse.json({ results }, { status: 200, headers: noStoreHeaders })
 }

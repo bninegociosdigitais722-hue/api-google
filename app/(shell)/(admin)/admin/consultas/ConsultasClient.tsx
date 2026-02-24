@@ -397,6 +397,17 @@ export default function ConsultasClient({
                           if (!resp.ok) {
                             throw new Error(data.message || 'Falha ao enviar')
                           }
+                          const normalized = normalizePhone(item.telefone)
+                          const result = Array.isArray(data?.results)
+                            ? data.results.find((r: any) => normalizePhone(r.phone) === normalized)
+                            : null
+                          if (result?.status === 'failed') {
+                            throw new Error(result.error || 'Falha ao enviar')
+                          }
+                          if (result?.status === 'skipped') {
+                            toast.message('Convite já enviado anteriormente.')
+                            return
+                          }
                           setResultados((prev) =>
                             prev.map((r) =>
                               r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
@@ -435,7 +446,7 @@ export default function ConsultasClient({
                         onClick={async () => {
                           if (!item.telefone) return
                           setSendingPhone(item.telefone)
-                          try {
+                        try {
                           const resp = await fetch(`${apiPrefix}/atendimento/send`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -447,11 +458,18 @@ export default function ConsultasClient({
                               photoUrl: item.fotoUrl ?? null,
                             }),
                           })
-                            const data = await resp.json()
-                            if (!resp.ok) throw new Error(data.message || 'Falha ao reenviar')
-                            setResultados((prev) =>
-                              prev.map((r) =>
-                                r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                          const data = await resp.json()
+                          if (!resp.ok) throw new Error(data.message || 'Falha ao reenviar')
+                          const normalized = normalizePhone(item.telefone)
+                          const result = Array.isArray(data?.results)
+                            ? data.results.find((r: any) => normalizePhone(r.phone) === normalized)
+                            : null
+                          if (result?.status === 'failed') {
+                            throw new Error(result.error || 'Falha ao reenviar')
+                          }
+                          setResultados((prev) =>
+                            prev.map((r) =>
+                              r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
                               )
                             )
                             setVisiveis((prev) =>
