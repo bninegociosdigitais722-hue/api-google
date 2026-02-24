@@ -457,6 +457,7 @@ export async function GET(req: NextRequest) {
     )
 
     let whatsappStatus: WhatsappStatus = new Map()
+    let whatsappCheckFailed = false
     try {
       const phones = detailed
         .map((p) => normalizePhoneToBR(p.telefone))
@@ -466,6 +467,7 @@ export async function GET(req: NextRequest) {
         whatsappStatus = await phoneExistsBatch(phones)
       }
     } catch (err) {
+      whatsappCheckFailed = true
       log('zapi_check_error', { error: (err as Error)?.message })
     }
 
@@ -475,7 +477,12 @@ export async function GET(req: NextRequest) {
       return { ...place, temWhatsapp }
     })
 
-    const filtered = onlyWhatsapp === 'true' ? enriched.filter((p) => p.temWhatsapp) : enriched
+    const filtered =
+      onlyWhatsapp === 'true'
+        ? whatsappCheckFailed
+          ? enriched
+          : enriched.filter((p) => p.temWhatsapp)
+        : enriched
 
     const normalizedPhones = filtered
       .map((place) => normalizePhoneToBR(place.telefone))
@@ -489,10 +496,16 @@ export async function GET(req: NextRequest) {
       return { ...place, lastOutboundTemplate }
     })
 
-    return NextResponse.json(withOutbound.length ? { resultados: withOutbound } : { resultados: [] }, {
-      status: 200,
-      headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=60' },
-    })
+    return NextResponse.json(
+      {
+        resultados: withOutbound.length ? withOutbound : [],
+        whatsappCheck: whatsappCheckFailed ? 'failed' : 'ok',
+      },
+      {
+        status: 200,
+        headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=60' },
+      }
+    )
   } catch (error) {
     logError('unexpected_error', { requestId, error: (error as Error)?.message })
     return NextResponse.json(

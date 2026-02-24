@@ -37,6 +37,7 @@ type Resultado = {
 type ApiResponse = {
   resultados: Resultado[]
   message?: string
+  whatsappCheck?: 'ok' | 'failed'
 }
 
 const sugestoes = ['supermercado', 'açougue', 'padaria', 'hortifruti', 'mercearia']
@@ -142,6 +143,9 @@ export default function ConsultasClient({
       setResultados(enriched)
       setVisiveis(enriched.slice(0, 18))
       setTotalCount(enriched.length)
+      if (values.somenteWhatsapp && data.whatsappCheck === 'failed') {
+        toast.message('Validação do WhatsApp indisponível. Exibindo todos os resultados.')
+      }
       toast.success('Busca concluída com sucesso.')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro inesperado ao buscar.'
