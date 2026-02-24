@@ -405,6 +405,16 @@ export default function ConsultasClient({
                             throw new Error(result.error || 'Falha ao enviar')
                           }
                           if (result?.status === 'skipped') {
+                            setResultados((prev) =>
+                              prev.map((r) =>
+                                r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                              )
+                            )
+                            setVisiveis((prev) =>
+                              prev.map((r) =>
+                                r.id === item.id ? { ...r, lastOutboundTemplate: 'supercotacao_demo' } : r
+                              )
+                            )
                             toast.message('Convite já enviado anteriormente.')
                             return
                           }
